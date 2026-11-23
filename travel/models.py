@@ -1,164 +1,183 @@
-from datetime import date, datetime
-from typing import Literal
+from datetime import date, timedelta
+from decimal import Decimal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
 
 class Model(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
 
-Mode = Literal["bus", "rail", "air"]
-City = Literal["New York City", "Boston", "Philadelphia"]
-Point = tuple[int, int]
+Text = Annotated[str, Field(min_length=1, max_length=350)]
+Currency = Annotated[str, Field(pattern="^[A-Z]{3}$")]
+Count = Annotated[int, Field(ge=1, le=9)]
+
+
+class Query(Model):
+    query: Text
+
+
+class FX(Model):
+    base: Currency
+    target: Currency
+
+
+class Point(Model):
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+
+
+class PlacesQuery(Query):
+    osm_tag: str | None = Field(
+        None,
+        pattern="^[a-z_]+:[a-z_]+$",
+        description="For category discovery use amenity:restaurant, tourism:museum, leisure:golf_course or another appropriate OSM tag. Omit for an exact named venue.",
+    )
+    center: Point = Field(description="Resolved city or search-area coordinates.")
+    radius_km: float = Field(40, gt=0, le=100)
+
+
+class Route(Model):
+    origin: Point
+    destination: Point
+    mode: Literal["DRIVE", "WALK", "TRANSIT"]
+    departure: AwareDatetime | None = None
+
+
+class Slice(Model):
+    origin: Annotated[str, Field(pattern="^[A-Z]{3}$")]
+    destination: Annotated[str, Field(pattern="^[A-Z]{3}$")]
+    departure_date: date
+
+
+class Flight(Model):
+    slices: list[Slice] = Field(min_length=1, max_length=6)
+    adults: Count
+
+
+class Stay(Model):
+    center: Point
+    check_in: date
+    check_out: date
+    adults: Count
+    rooms: Count = 1
+
+    @model_validator(mode="after")
+    def dates(self):
+        if self.check_in >= self.check_out or self.rooms > self.adults:
+            raise ValueError("Check the stay dates and room occupancy")
+        return self
 
 
 class Trip(Model):
-    origin: City
-    destination: City
-    departure: date
-    returning: date
-    budget_cents: int = Field(gt=0, le=100_000_000, strict=True)
-    travelers: int = Field(default=1, ge=1, le=8, strict=True)
-    allowed_modes: list[Mode] = Field(
-        default_factory=lambda: ["air", "bus", "rail"], min_length=1, max_length=3
+    origin: Text
+    destinations: list[Text] = Field(
+        max_length=20,
+        description="Only destinations to visit on THIS itinerary, in visit order. Exclude alternative destinations considered.",
     )
-    preferred_mode: Mode | None = None
-    lodging: Literal["central", "value"] | None = None
-    interests: list[Literal["history", "art", "outdoors", "science"]] = Field(
-        default_factory=list
+    open_destination: bool = Field(
+        False, description="User delegated the choice of destination."
     )
-    priority: Literal["balanced", "cost", "time"] = "balanced"
+    duration_days: int | None = Field(
+        None,
+        ge=1,
+        description="Inclusive trip length if the traveler specified a number of days.",
+    )
+    flexible_dates: bool = Field(
+        False,
+        description="Exact travel dates are proposed within the traveler's flexible window.",
+    )
+    start: date
+    end: date
+    adults: Count
+    currency: Currency = "USD"
+    budget: Decimal | None = Field(None, gt=0)
+    daily_visits: bool = Field(
+        False,
+        description="Traveler wants a day-by-day sightseeing or activities itinerary.",
+    )
+    requirements: list[Text] = Field(default_factory=list, max_length=40)
+    assumptions: list[Text] = Field(default_factory=list, max_length=20)
 
     @model_validator(mode="after")
-    def validate_route(self):
-        if self.origin != "New York City" or self.destination == self.origin:
-            raise ValueError("Choose New York City to Boston or Philadelphia.")
-        if not 0 <= self.nights <= 13:
-            raise ValueError("Return must be within 0 to 13 nights after departure.")
+    def dates(self):
+        if (
+            self.duration_days
+            and (self.end - self.start).days + 1 != self.duration_days
+        ):
+            if not self.flexible_dates:
+                raise ValueError("Date range must match requested inclusive duration")
+            try:
+                self.end = self.start + timedelta(days=self.duration_days - 1)
+            except OverflowError as exc:
+                raise ValueError("Duration exceeds the supported calendar") from exc
+        if self.end < self.start:
+            raise ValueError("Return precedes departure")
         return self
 
-    @property
-    def nights(self):
-        return (self.returning - self.departure).days
+
+class Interpretation(Trip):
+    travel_window_quote: str | None = Field(
+        None,
+        description="Exact verbatim words from the traveler specifying when to travel (date, month, relative window). Null if missing. Never supply your own date as evidence.",
+    )
+    research_queries: list[Text] = Field(
+        default_factory=list,
+        max_length=3,
+        description="Up to three targeted web searches to execute immediately. Include named-venue discovery for mandatory activities, official intercity timetables, or climate/destination discovery for open requests. Use [] if none are needed.",
+    )
 
 
-class Source(Model):
-    source: str = "Simulated corridor catalog v1"
-    reliability: Literal["simulated"] = "simulated"
-
-
-class Transport(Source):
-    mode: Mode
+class Evidence(Model):
+    kind: Literal[
+        "location", "airport", "flight", "hotel", "route", "place", "web", "fx"
+    ]
+    name: str
     provider: str
-    origin: City
-    destination: City
-    terminal: str
-    location: Point
-    outbound: tuple[datetime, datetime]
-    inbound: tuple[datetime, datetime]
-    fare_each_way_cents: int
-    party_roundtrip_cents: int
-    access_minutes: int
-    access_cents_pp: int
-    checkin_minutes: int
-    restrictions: str
-
-    @computed_field
-    @property
-    def roundtrip_ride_minutes(self) -> int:
-        return sum(
-            (end - start).seconds // 60 for start, end in (self.outbound, self.inbound)
-        )
+    source: str | None = None
+    retrieved: AwareDatetime
+    details: dict = Field(default_factory=dict)
+    amount: Decimal | None = Field(None, ge=0, allow_inf_nan=False)
+    currency: Currency | None = None
+    basis: Literal["party total", "per traveler", "unknown"] = "unknown"
+    price_status: Literal["live quote", "published", "estimate", "unavailable"] = (
+        "unavailable"
+    )
+    availability: str = "unverified"
 
 
-class Hotel(Source):
-    name: str
-    style: Literal["central", "value"]
-    location: Point
-    district: str
-    nightly_cents: int
-    rooms: int
-    nights: int
-    room_total_cents: int
-    tax_cents: int
+class Slot(Model):
+    web_activity: Text | None = Field(
+        None,
+        description="For a web-only visit, give the specific venue or service name verbatim from the cited result. General research articles stay in the source list.",
+    )
+    evidence: Text
+    start: AwareDatetime
+    end: AwareDatetime
+    slice_index: int = Field(0, ge=0, le=5)
 
 
-class Activity(Source):
-    name: str
-    district: str
-    location: Point
-    interest: str
-    duration: int
-    admission_cents: int
-    opens: int
-    closes: int
-
-
-class Event(Model):
-    start: datetime
-    end: datetime
-    title: str
-    category: str
-    cents: int = 0
-
-
-class Costs(Model):
-    primary: int
-    accommodation: int
-    transfers: int
-    local: int
-    activities: int
-    meals: int
-    fees: int
-
-    @property
-    def total(self):
-        return sum(self.model_dump().values())
+class Break(Model):
+    kind: Literal["break", "free time"] = "break"
+    start: AwareDatetime
+    end: AwareDatetime
 
 
 class Candidate(Model):
-    transport: Transport
-    hotel: Hotel
-    costs: Costs
-    total_cents: int
-    remaining_cents: int
-    travel_minutes: int
-    destination_minutes: int
-    visits: int
-    interest_matches: int
-    score: int
-    feasible: bool
-    events: list[Event]
+    breaks: list[Break] = Field(default_factory=list, max_length=100)
+    items: list[Slot] = Field(max_length=350)
+    gaps: list[Text] = Field(default_factory=list, max_length=60)
 
 
-class Comparison(Model):
-    mode: Mode
-    provider: str
-    hotel: str
-    costs: Costs
-    total_cents: int
-    remaining_cents: int
-    travel_minutes: int
-    destination_minutes: int
-    visits: int
-    interest_matches: int
-    score: int
-    feasible: bool
+class Finish(Model):
+    trip: Trip
+    candidates: list[Candidate] = Field(min_length=1, max_length=4)
+    priority: Literal["cost", "time", "balanced"] = "balanced"
 
 
-class Execution(Model):
-    tool: str
-    source: str
-    inputs: dict
-    output: dict | list | None = None
-    error: str | None = None
-
-
-class Report(Model):
-    request: Trip
-    assumptions: list[str]
-    trace: list[Execution]
-    selected: Candidate
-    alternatives: list[Comparison]
-    explanation: str
+class Question(Model):
+    missing: Literal[
+        "origin", "travel window", "conflicting constraints", "ambiguous place", "party"
+    ]
+    question: Text

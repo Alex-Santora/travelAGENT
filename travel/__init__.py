@@ -1,1 +1,1 @@
-"""Whole-trip travel planner."""
+"""travelAGENT whole-trip planning engine."""

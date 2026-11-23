@@ -1,407 +1,775 @@
-import asyncio
-import itertools
 import json
 
 import httpx
 import pytest
+from fastapi.testclient import TestClient
 from openai import OpenAI
+from streamlit.testing.v1 import AppTest
 
-from travel import agent, catalog
+from travel import agent, llm
 from travel.api import app
-from travel.request import Submission
-from travel.scenarios import SCENARIOS
+from travel.catalog import Providers, Unavailable, record
+from travel.models import Candidate, Flight, Query, Stay, Trip
+from travel.optimize import evaluate
 
-BASE = {
-    "origin": "New York City",
-    "destination": "Boston",
-    "travelers": 1,
-    "departure": "2027-04-12",
-    "days": 4,
-    "budget_usd": 900,
+TRIP = {
+    "origin": "Boston",
+    "destinations": ["Lisbon"],
+    "start": "2027-04-12",
+    "end": "2027-04-14",
+    "adults": 2,
+    "budget": "100",
+    "currency": "USD",
 }
-EXTRACTED = {
-    SCENARIOS["A"]: BASE,
-    SCENARIOS["B"]: dict(
-        BASE,
-        destination="Philadelphia",
-        days=3,
-        budget_usd=850,
-        priority="cost",
-        interests=["history"],
-    ),
-    SCENARIOS["C"]: dict(BASE, travelers=2, budget_usd=120),
-}
+POINT = {"latitude": 38.7, "longitude": -9.1}
 
 
-def completion(calls):
+def providers(handler):
+    return Providers(httpx.Client(transport=httpx.MockTransport(handler)))
+
+
+def test_no_keys_and_test_environment(monkeypatch):
+    monkeypatch.delenv("SERPAPI_API_KEY", raising=False)
+    monkeypatch.delenv("DUFFEL_ACCESS_TOKEN", raising=False)
+    service = providers(lambda req: pytest.fail("Unexpected network call"))
+    args = Flight(
+        slices=[
+            {"origin": "BOS", "destination": "LIS", "departure_date": TRIP["start"]}
+        ],
+        adults=2,
+    )
+    with pytest.raises(Unavailable, match="DUFFEL_ACCESS_TOKEN"):
+        service.search_flights(args)
+    monkeypatch.setenv("DUFFEL_ACCESS_TOKEN", "duffel_test_example")
+    with pytest.raises(Unavailable, match="live Duffel"):
+        service.search_flights(args)
+
+
+def test_timeouts_rate_limit_and_empty(monkeypatch):
+    monkeypatch.delenv("SERPAPI_API_KEY", raising=False)
+    monkeypatch.setenv("DUFFEL_ACCESS_TOKEN", "duffel_live_fixture")
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        if request.url.host == "api.duffel.com":
+            assert (
+                json.loads(request.content)["data"]["passengers"]
+                == [{"type": "adult"}] * 2
+            )
+            return httpx.Response(201, json={"data": {"live_mode": True, "offers": []}})
+        raise httpx.ReadTimeout("timeout")
+
+    p = providers(handler)
+    assert (
+        p.search_flights(
+            Flight(
+                slices=[
+                    {
+                        "origin": "BOS",
+                        "destination": "LIS",
+                        "departure_date": TRIP["start"],
+                    }
+                ],
+                adults=2,
+            )
+        )
+        == []
+    )
+    with pytest.raises(Unavailable, match="ReadTimeout"):
+        p.resolve_location(Query(query="Lisbon"))
+    assert len(calls) == 3
+
+
+def test_stay_access_and_rates(monkeypatch):
+    monkeypatch.delenv("SERPAPI_API_KEY", raising=False)
+    monkeypatch.setenv("DUFFEL_ACCESS_TOKEN", "duffel_live_fixture")
+    args = Stay(center=POINT, check_in=TRIP["start"], check_out=TRIP["end"], adults=2)
+    p = providers(lambda req: httpx.Response(403, json={}))
+    with pytest.raises(Unavailable, match="403"):
+        p.search_hotels(args)
+
+    def handler(req):
+        if req.url.path.endswith("fetch_all_rates"):
+            return httpx.Response(
+                200,
+                json={
+                    "data": {
+                        "accommodation": {
+                            "rooms": [
+                                {"name": "Queen", "rates": [{"total_amount": "125"}]}
+                            ]
+                        }
+                    }
+                },
+            )
+        return httpx.Response(
+            200,
+            json={
+                "data": {
+                    "results": [
+                        {
+                            "id": "srr_fixture",
+                            "accommodation": {"name": "Test property"},
+                            "cheapest_rate_total_amount": "125",
+                            "cheapest_rate_currency": "EUR",
+                        }
+                    ]
+                }
+            },
+        )
+
+    row = providers(handler).search_hotels(args)[0]
+    assert row.details["rooms"][0]["name"] == "Queen"
+    assert (
+        row.price_status == "live quote"
+        and row.currency == "EUR"
+        and row.details["adults"] == 2
+    )
+
+
+def test_calendar_budget_and_missing_fares():
+    route = record(
+        "route",
+        "Tram",
+        "fixture",
+        details={"seconds": 1800},
+        amount="4.60",
+        currency="EUR",
+        basis="per traveler",
+        price_status="published",
+    )
+    fx = record(
+        "fx",
+        "EUR/USD",
+        "fixture",
+        details={"base": "EUR", "target": "USD", "rate": "1.25"},
+    )
+    venue = record(
+        "place",
+        "Golf club",
+        "fixture",
+        details={
+            "timeZone": {"id": "Europe/Lisbon"},
+            "regularOpeningHours": {
+                "periods": [
+                    {"open": {"day": 1, "hour": 9}, "close": {"day": 1, "hour": 16}}
+                ]
+            },
+        },
+    )
+    visit = {
+        "evidence": "club",
+        "start": "2027-04-12T17:00:00+01:00",
+        "end": "2027-04-12T18:00:00+01:00",
+    }
+    ride = {
+        "evidence": "tram",
+        "start": "2027-04-12T16:55:00+01:00",
+        "end": "2027-04-12T17:05:00+01:00",
+    }
+    result = evaluate(
+        Candidate(items=[visit, ride]),
+        Trip(**TRIP),
+        {"club": venue, "tram": route, "rate": fx},
+    )
+    assert result["known_total"] == "11.50" and result["total_status"] == "partial"
+    assert any("outside published" in x for x in result["issues"])
+    assert any("shorter" in x for x in result["issues"])
+    assert any("Overlap" in x for x in result["issues"])
+    assert any("Unpriced" in x for x in result["gaps"])
+    with pytest.raises(ValueError, match="evidence IDs"):
+        evaluate(Candidate(items=[visit]), Trip(**TRIP), {})
+
+
+def chat_reply(content):
     return httpx.Response(
         200,
         json={
-            "id": "fixture",
-            "created": 0,
-            "model": "fixture",
+            "id": "test",
             "object": "chat.completion",
+            "created": 1,
+            "model": "test",
             "choices": [
                 {
                     "index": 0,
-                    "finish_reason": "tool_calls",
-                    "message": {
-                        "role": "assistant",
-                        "tool_calls": [
-                            {
-                                "id": ident,
-                                "type": "function",
-                                "function": {
-                                    "name": name,
-                                    "arguments": json.dumps(args),
-                                },
-                            }
-                            for ident, name, args in calls
-                        ],
-                    },
+                    "message": {"role": "assistant", "content": content},
+                    "finish_reason": "stop",
                 }
             ],
         },
     )
 
 
-def scripted_client(fields, prompt, *, bad_call=False):
-    counter = itertools.count()
+def test_non_native_fallback_repairs_and_executes_real_dispatch():
+    requests = []
 
-    def handler(request):
-        payload = json.loads(request.content)
-        assert json.loads(payload["messages"][1]["content"])["prompt"] == prompt
-        # Every prior call must have exactly one correlated tool message.
-        requested = [
-            c["id"] for m in payload["messages"] for c in m.get("tool_calls", [])
-        ]
-        replies = [m for m in payload["messages"] if m["role"] == "tool"]
-        assert requested == [m["tool_call_id"] for m in replies]
-        names = [t["function"]["name"] for t in payload["tools"]]
-        if "set_trip" in names:
-            names = ["clarify" if replies else "set_trip"]
-        else:
-            names = sorted(names, reverse=True)
-        calls = []
-        for name in names:
-            args = {}
-            if name == "set_trip":
-                args = fields
-            elif name == "clarify":
-                args = {"question": json.loads(replies[-1]["content"])["error"]}
-            elif name == "recommend":
-                result = json.loads(replies[-1]["content"])["data"]
-                assert result["schedule"] and "total_cents" in result["choice"]
-                args = {"emphasis": "transfers"}
-            elif name == "search_hotels" and bad_call and len(replies) == 1:
-                args = {"invent_price": 1}
-            calls.append((str(next(counter)), name, args))
-        return completion(calls)
-
-    return fake_client(handler)
-
-
-def run(prompt=SCENARIOS["A"], *, extracted=None, **fields):
-    values = EXTRACTED[prompt] if extracted is None else extracted
-    with scripted_client(values, prompt) as client:
-        return agent.plan(Submission(prompt=prompt, overrides=fields), client)
-
-
-@pytest.mark.parametrize(
-    ("fields", "expected"),
-    [
-        ({}, "Please provide"),
-        (dict(BASE, origin="Chicago"), "origin"),
-        (dict(BASE, destination="Paris"), "destination"),
-        (dict(BASE, origin="Boston"), "New York City"),
-        (dict(BASE, budget_usd=-50), "budget_usd"),
-        (dict(BASE, budget_usd=0), "budget_usd"),
-        (dict(BASE, budget_usd=1000001), "budget_usd"),
-        (dict(BASE, days=0), "days"),
-        (dict(BASE, travelers=9), "travelers"),
-        (dict(BASE, departure="2027-02-29"), "departure"),
-        (dict(BASE, returning="2027-04-01"), "conflicts"),
-        ({k: v for k, v in BASE.items() if k != "departure"}, "departure"),
-    ],
-)
-def test_bad_requests(fields, expected):
-    with pytest.raises(agent.PlanningError, match=expected) as error:
-        run("Please plan a trip", extracted=fields)
-    assert error.value.trace[-1].tool == "clarify"
-
-
-def test_override_and_defaults():
-    r = run(departure="2027-08-21", travelers=3, budget_usd="800.21")
-    assert (r.request.returning - r.request.departure).days == 3
-    assert r.request.budget_cents == 80021
-    assert r.selected.hotel.rooms == 2
-    assert r.selected.hotel.nights == 3
-    assert r.selected.costs.accommodation == r.selected.hotel.nightly_cents * 2 * 3
-    assert r.selected.costs.fees == (r.selected.costs.accommodation * 12 + 50) // 100
-
-
-@pytest.mark.parametrize("key", list(SCENARIOS))
-def test_pipeline(key):
-    r = run(SCENARIOS[key])
-    best = r.selected
-    assert {e.tool for e in r.trace} == set(agent.TOOLS) - {"clarify"}
-    assert r.trace[-1].output["explanation"] == r.explanation
-    assert f"${best.costs.transfers / 100:,.2f}" in r.explanation
-    assert all(e.output and not e.error for e in r.trace)
-    assert best.costs.total == best.total_cents
-    assert best.remaining_cents == r.request.budget_cents - best.total_cents
-    assert (
-        best.costs.primary
-        == 2 * best.transport.fare_each_way_cents * r.request.travelers
-    )
-    assert best.costs.meals == 3500 * r.request.travelers * (r.request.nights + 1)
-    assert best.feasible == (key != "C")
-    assert best.model_dump() == run(SCENARIOS[key]).selected.model_dump()
-    if key == "C":
-        assert best.total_cents == min(
-            [best.total_cents] + [r.total_cents for r in r.alternatives]
-        )
-    for category in ("transfers", "primary", "local", "activities"):
-        assert sum(e.cents for e in best.events if e.category == category) == getattr(
-            best.costs, category
-        )
-    events = best.events
-    assert all(e.start < e.end for e in events)
-    assert all(a.end <= b.start for a, b in itertools.pairwise(events))
-    activities = {a.name: a for a in catalog.search_activities(r.request)}
-    for e in events:
-        if e.category == "activities":
-            assert (
-                best.transport.outbound[1]
-                <= e.start
-                < e.end
-                <= best.transport.inbound[0]
+    def handler(req):
+        data = json.loads(req.content)
+        requests.append(req.url.path)
+        if "tools" in data or req.url.path.endswith("responses"):
+            return httpx.Response(
+                400,
+                json={
+                    "error": {"message": "unsupported", "type": "invalid_request_error"}
+                },
             )
-            a = activities[e.title]
-            assert (
-                e.start.hour >= a.opens
-                and e.end.hour * 60 + e.end.minute <= a.closes * 60
-            )
-
-
-def test_cheapest_ticket_loses_when_transfers_count():
-    r = run(SCENARIOS["B"])
-    best = r.selected
-    air = next(
-        c for c in r.alternatives if c.mode == "air" and c.hotel == best.hotel.name
-    )
-    assert air.costs.primary < best.costs.primary
-    assert air.costs.transfers > best.costs.transfers
-    assert air.total_cents > best.total_cents
-    assert best.total_cents == min(c.total_cents for c in [best, *r.alternatives])
-
-
-def test_priority_changes_transport_and_budget_is_hard():
-    fast = run(priority="time")
-    cheap = run(priority="cost")
-    assert fast.selected.travel_minutes < cheap.selected.travel_minutes
-    constrained = run(priority="time", budget_usd=cheap.selected.total_cents / 100)
-    assert constrained.selected.feasible and constrained.selected.remaining_cents == 0
-
-
-def test_same_day_has_no_lodging_or_transfer_to_hotel():
-    r = run(days=1, budget_usd=400)
-    assert (
-        r.selected.hotel.rooms
-        == r.selected.hotel.nights
-        == r.selected.costs.accommodation
-        == 0
-    )
-    assert not any(r.selected.hotel.name in e.title for e in r.selected.events)
-
-
-@pytest.mark.parametrize("missing", ["search_hotels", "both_services"])
-def test_missing_inventory(missing, monkeypatch):
-    names = (
-        ["search_hotels"]
-        if missing == "search_hotels"
-        else ["search_flights", "search_ground_transport"]
-    )
-    for name in names:
-        monkeypatch.setitem(agent.SEARCH, name, lambda trip: [])
-    with pytest.raises(
-        agent.PlanningError, match="No transportation or lodging"
-    ) as exc:
-        run()
-    assert exc.value.trace[-1].error
-
-
-def test_api(monkeypatch):
-    def backend(submission):
-        with scripted_client(
-            EXTRACTED.get(submission.prompt, {}), submission.prompt
-        ) as client:
-            return agent.plan(submission, client)
-
-    monkeypatch.setattr("travel.api.plan", backend)
-
-    async def exercise():
-        async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=app), base_url="http://test"
-        ) as client:
-            assert (await client.get("/health")).json() == {"status": "ok"}
-            assert (await client.post("/plan", json={"prompt": SCENARIOS["B"]})).json()[
-                "selected"
-            ]["feasible"]
-            assert (
-                await client.post("/plan", json={"prompt": "to Paris"})
-            ).status_code == 422
-            assert (
-                await client.post(
-                    "/plan", json={"prompt": "", "overrides": {"travelers": 0}}
+        transcript = data["messages"][0]["content"]
+        if "Invalid JSON" not in transcript:
+            return chat_reply("invalid")
+        if (
+            "executed"
+            not in transcript.split("Conversation and executed tool results:")[-1]
+        ):
+            return chat_reply(
+                json.dumps(
+                    {
+                        "actions": [
+                            {
+                                "name": "resolve_location",
+                                "arguments": {"query": "Lisbon"},
+                            }
+                        ]
+                    }
                 )
-            ).status_code == 422
+            )
+        return chat_reply(
+            json.dumps(
+                {
+                    "actions": [
+                        {
+                            "name": "clarify",
+                            "arguments": {
+                                "question": "Which travel dates?",
+                                "missing": "travel window",
+                            },
+                        }
+                    ]
+                }
+            )
+        )
 
-    asyncio.run(exercise())
-
-
-def fake_client(handler):
-    return OpenAI(
-        api_key="offline-test",
-        max_retries=0,
+    ai = OpenAI(
+        api_key="fixture",
+        base_url="https://model.invalid/v1",
         http_client=httpx.Client(transport=httpx.MockTransport(handler)),
     )
-
-
-def test_sdk_tool_loop_rejects_bad_args_and_accepts_model_search_order():
-    prompt = SCENARIOS["A"]
-    with scripted_client(BASE, prompt, bad_call=True) as client:
-        result = agent.plan(Submission(prompt=prompt), client)
-    calls = [e for e in result.trace if e.tool == "search_hotels"]
-    assert len(calls) == 2 and calls[0].error and calls[1].output
-    assert result.selected.total_cents == run().selected.total_cents
-
-
-def test_provider_timeout_redacted():
-    def timeout(request):
-        raise httpx.ReadTimeout("sensitive text", request=request)
-
-    with pytest.raises(agent.PlanningError, match="timed out") as exc:
-        agent.plan(Submission(prompt="Boston"), fake_client(timeout))
-    assert "sensitive" not in str(exc.value)
-
-
-@pytest.mark.parametrize("city", ["Boston", "Philadelphia"])
-@pytest.mark.parametrize("duration", [1, 2, 4, 14])
-def test_all_candidate_schedules(city, duration):
-    r = run(days=duration, destination=city, travelers=3, budget_usd=4000)
-    trip = r.request
-    candidates = agent.estimate_trip_costs(
-        trip,
-        catalog.services(trip, ["rail", "bus", "air"]),
-        catalog.search_hotels(trip),
-        catalog.search_activities(trip),
+    dialogue = llm.Dialogue(ai, "test", "Use tools", {"request": "travel"}, [])
+    assert dialogue.step() == []
+    call = dialogue.step()[0]
+    geocoder = providers(
+        lambda req: httpx.Response(
+            200, json={"results": [{"name": "Lisbon", "country": "Portugal"}]}
+        )
     )
-    for candidate in candidates:
-        events = candidate.events
-        assert all(a.end <= b.start for a, b in itertools.pairwise(events))
-        assert {e.start.date() for e in events} == {
-            trip.departure.fromordinal(trip.departure.toordinal() + i)
-            for i in range(duration)
-        }
-        assert candidate.total_cents == (
-            sum(e.cents for e in events)
-            + candidate.costs.accommodation
-            + candidate.costs.fees
-            + candidate.costs.meals
+    result = geocoder.resolve_location(Query.model_validate_json(call[2]))[
+        0
+    ].model_dump(mode="json")
+    dialogue.accept(call, result)
+    assert dialogue.step()[0][1] == "clarify"
+    assert dialogue.mode == "chat-json"
+    assert len(requests) == 6
+
+
+def test_native_ids_and_context():
+    requests = []
+
+    def handler(req):
+        body = json.loads(req.content)
+        requests.append(body)
+        return httpx.Response(
+            200,
+            json={
+                "id": "resp_1",
+                "object": "response",
+                "created_at": 1,
+                "model": "test",
+                "output": [
+                    {
+                        "type": "function_call",
+                        "call_id": "call_abc",
+                        "name": "search_web",
+                        "arguments": "{}",
+                    }
+                ],
+            },
         )
 
-
-def test_no_key(monkeypatch):
-    monkeypatch.setenv("TRAVEL_LLM_PROVIDER", "openai")
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    with pytest.raises(agent.PlanningError, match="OPENAI_API_KEY"):
-        agent.plan(Submission(prompt="to Boston"))
-
-
-def test_ground_only_workflow():
-    r = run(extracted=dict(BASE, allowed_modes=["rail"]))
-    assert "search_flights" not in [e.tool for e in r.trace]
-    assert r.selected.transport.mode == "rail"
-    assert all(a.mode == "rail" for a in r.alternatives)
+    ai = OpenAI(
+        api_key="fixture",
+        http_client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    dialogue = llm.Dialogue(ai, "test", "system", {}, [])
+    call = dialogue.step()[0]
+    dialogue.accept(call, {"error": "Unavailable"})
+    dialogue.step()
+    assert requests[1]["previous_response_id"] == "resp_1"
+    assert requests[1]["input"][0]["call_id"] == "call_abc"
 
 
-def test_reject_old_mode():
-    from pydantic import ValidationError
+def test_clarification_followup_and_stream(monkeypatch):
+    class FakeDialogue:
+        mode = "responses"
 
-    with pytest.raises(ValidationError):
-        Submission(prompt="Boston", mode="demo")
+        def __init__(self, ai, model, system, context, schemas):
+            self.context = context
 
+        def feedback(self, *args):
+            pass
 
-@pytest.mark.parametrize(
-    "status, message",
-    [(401, "authentication"), (400, "tool-calling"), (429, "rate limited")],
-)
-def test_provider_errors(status, message):
-    with (
-        fake_client(
-            lambda _: httpx.Response(status, json={"error": {"message": "private"}})
-        ) as client,
-        pytest.raises(agent.PlanningError, match=message) as error,
-    ):
-        agent.plan(Submission(prompt=SCENARIOS["A"]), client)
-    assert not error.value.trace and "private" not in str(error.value)
-
-
-def test_unknown_tool_stops_at_limit(monkeypatch):
-    monkeypatch.setenv("TRAVEL_MAX_ROUNDS", "2")
-    with (
-        fake_client(lambda _: completion([("bad", "invent_prices", {})])) as client,
-        pytest.raises(agent.PlanningError, match="round limit") as error,
-    ):
-        agent.plan(Submission(prompt=SCENARIOS["A"]), client)
-    assert len(error.value.trace) == 2 and all(e.error for e in error.value.trace)
-
-
-def test_live_provider():
-    import os
-
-    if os.getenv("TRAVEL_RUN_LIVE") != "1":
-        pytest.skip("Set TRAVEL_RUN_LIVE=1 to call the configured provider")
-    if os.getenv("TRAVEL_LLM_PROVIDER", "openai") == "openai" and not os.getenv(
-        "OPENAI_API_KEY"
-    ):
-        pytest.skip("OPENAI_API_KEY unavailable")
-    report = agent.plan(Submission(prompt=SCENARIOS["A"]))
-    assert report.selected.feasible
-    assert any(e.tool in agent.SEARCH and e.output for e in report.trace)
-
-
-def test_streamlit_result_and_clarification(monkeypatch):
-    from pathlib import Path
-
-    from streamlit.testing.v1 import AppTest
-
-    def post(url, *, json, timeout):
-        submission = Submission.model_validate(json)
-        with scripted_client(
-            EXTRACTED.get(submission.prompt, {}), submission.prompt
-        ) as client:
-            try:
-                report = agent.plan(submission, client)
-            except agent.PlanningError as exc:
-                return httpx.Response(
-                    exc.status,
-                    json={
-                        "detail": {
-                            "message": str(exc),
-                            "trace": [e.model_dump() for e in exc.trace],
+        def step(self):
+            if self.context["previous_turns"]:
+                assert (
+                    self.context["previous_turns"][0]["outcome"]["question"]
+                    == "When do you want to travel?"
+                )
+            return [
+                (
+                    "1",
+                    "clarify",
+                    json.dumps(
+                        {
+                            "question": "When do you want to travel?",
+                            "missing": "travel window",
                         }
+                    ),
+                )
+            ]
+
+    monkeypatch.setattr(agent.llm, "Dialogue", FakeDialogue)
+    monkeypatch.setenv("OPENAI_API_KEY", "fixture")
+    client = TestClient(app)
+    original = client.post("/plan", json={"prompt": "Take me to Lisbon"}).json()
+    assert original["question"] and original["conversation"]
+    lines = client.post(
+        "/plan/stream",
+        json={
+            "prompt": "Tell me what you need",
+            "conversation": original["conversation"],
+        },
+    ).text.splitlines()
+    assert json.loads(lines[0])["event"] == "progress"
+    assert json.loads(lines[-1])["data"]["conversation"] == original["conversation"]
+    assert client.post("/plan", json={"prompt": " "}).status_code == 422
+    assert not AppTest.from_file("../app.py").run().exception
+
+
+def test_price_expiry():
+    session = agent.Session()
+    session.evidence["old"] = record(
+        "flight", "Expired", "fixture", details={"expires_at": "2000-01-01T00:00:00Z"}
+    )
+    session.cache["flight"] = ["old"]
+    session.prune()
+    assert not session.evidence and not session.cache
+
+
+def test_return_flight_uses_airport_zones_and_bills_once(monkeypatch):
+    monkeypatch.delenv("SERPAPI_API_KEY", raising=False)
+    monkeypatch.setenv("DUFFEL_ACCESS_TOKEN", "duffel_live_fixture")
+    bos = {"iata_code": "BOS", "time_zone": "America/New_York"}
+    lis = {"iata_code": "LIS", "time_zone": "Europe/Lisbon"}
+
+    def segment(origin, destination, depart, arrive):
+        return {
+            "origin": origin,
+            "destination": destination,
+            "departing_at": depart,
+            "arriving_at": arrive,
+            "marketing_carrier": {"name": "Fixture Air"},
+            "marketing_carrier_flight_number": "123",
+        }
+
+    slices = [
+        {"segments": [segment(bos, lis, "2027-04-12T21:00:00", "2027-04-13T08:00:00")]},
+        {"segments": [segment(lis, bos, "2027-04-14T12:00:00", "2027-04-14T14:00:00")]},
+    ]
+    data = {
+        "live_mode": True,
+        "offers": [
+            {
+                "id": "off_fixture",
+                "owner": {"name": "Fixture Air"},
+                "slices": slices,
+                "total_currency": "USD",
+                "total_amount": "500.26",
+            }
+        ],
+    }
+    p = providers(lambda req: httpx.Response(201, json={"data": data}))
+    row = p.search_flights(
+        Flight(
+            slices=[
+                {
+                    "origin": "BOS",
+                    "destination": "LIS",
+                    "departure_date": TRIP["start"],
+                },
+                {"origin": "LIS", "destination": "BOS", "departure_date": TRIP["end"]},
+            ],
+            adults=2,
+        )
+    )[0]
+    slots = [
+        {
+            "evidence": "f",
+            "slice_index": i,
+            "start": "2027-04-12T00:00:00Z",
+            "end": "2027-04-12T01:00:00Z",
+        }
+        for i in (0, 1)
+    ]
+    result = evaluate(Candidate(items=slots), Trip(**TRIP), {"f": row})
+    assert result["known_total"] == "500.26" and len(result["costs"]) == 1
+    assert result["travel_minutes"] == 13 * 60
+    assert result["items"][0]["end"] == "2027-04-13T08:00:00+01:00"
+    assert "Known costs exceed the trip budget" in result["issues"]
+
+
+def test_filling_empty_day_uses_checked_venues_and_measured_routes():
+    from travel.models import Finish
+    from travel.optimize import distance_km
+    from travel.schedule import fill_visit_days
+
+    data = agent.Session()
+    data.evidence = {
+        "city": record(
+            "location",
+            "Lisbon",
+            "fixture",
+            details=POINT | {"timezone": "Europe/Lisbon"},
+        ),
+        "p1": record(
+            "place",
+            "Museum",
+            "fixture",
+            details={"location": POINT, "osm_value": "museum"},
+        ),
+        "p2": record(
+            "place",
+            "Club",
+            "fixture",
+            details={
+                "location": {"latitude": 38.708, "longitude": -9.1},
+                "osm_value": "golf_course",
+            },
+        ),
+    }
+    finish = Finish(
+        trip=TRIP | {"daily_visits": True, "requirements": ["golf"]},
+        candidates=[{"items": []}],
+    )
+    fill_visit_days(finish, data.evidence, distance_km)
+    assert [s.evidence for s in finish.candidates[0].items] == ["p2", "p1"]
+    service = providers(
+        lambda req: httpx.Response(
+            200, json={"routes": [{"duration": 600, "distance": 900}]}
+        )
+    )
+    import os
+    from unittest.mock import patch
+
+    with patch.dict(os.environ, {"GOOGLE_MAPS_API_KEY": ""}):
+        assert (
+            agent.connect_visits(finish, data, service, lambda *args, **kwargs: None, 2)
+            == 1
+        )
+    assert finish.candidates[0].items[-1].end.minute == 10
+
+
+def test_duration_and_hotel_deadlines():
+    with pytest.raises(ValueError, match="inclusive duration"):
+        Trip(**TRIP, duration_days=2)
+    row = record(
+        "hotel",
+        "Fixture Inn",
+        "fixture",
+        details={
+            "check_in": TRIP["start"],
+            "check_out": TRIP["end"],
+            "check_in_information": {
+                "check_in_after_time": "15:00",
+                "check_out_before_time": "11:00",
+            },
+            "adults": 2,
+        },
+    )
+    c = Candidate(
+        items=[
+            {
+                "evidence": "h",
+                "start": "2027-04-12T10:00:00+01:00",
+                "end": "2027-04-14T12:00:00+01:00",
+            }
+        ]
+    )
+    result = evaluate(c, Trip(**TRIP), {"h": row})
+    assert any("check-in opens" in i for i in result["issues"])
+    assert any("check-out deadline" in i for i in result["issues"])
+
+
+def test_calendar_evidence_and_qualified_geocoding():
+    from travel.request import has_window
+    from travel.scenarios import SCENARIOS
+
+    assert all(has_window(text) for text in SCENARIOS.values())
+    assert not has_window("Plan a trip from Boston to Lisbon")
+
+    def handler(req):
+        if "," in req.url.params["name"]:
+            return httpx.Response(200, json={})
+        return httpx.Response(
+            200,
+            json={
+                "results": [
+                    {"name": "Porto", "country": "Portugal"},
+                    {"name": "Porto", "country": "France"},
+                ]
+            },
+        )
+
+    rows = providers(handler).resolve_location(Query(query="Porto, Portugal"))
+    assert [r.details["country"] for r in rows] == ["Portugal"]
+
+
+def test_flexible_length_and_provider_backoff():
+    assert str(Trip(**TRIP, flexible_dates=True, duration_days=2).end) == "2027-04-13"
+    requests = []
+
+    def handler(req):
+        requests.append(req)
+        return httpx.Response(429, headers={"Retry-After": "300"})
+
+    with pytest.raises(Unavailable, match="429"):
+        providers(handler).resolve_location(Query(query="Porto"))
+    assert len(requests) == 1
+
+
+def test_model_dispatches_live_rate_adapter_and_reuses_on_revision(monkeypatch):
+    from travel.request import Submission
+
+    requests = []
+
+    def handler(req):
+        requests.append(req.url.path)
+        if req.url.path.endswith("fetch_all_rates"):
+            return httpx.Response(200, json={"data": {"accommodation": {"rooms": []}}})
+        assert req.url.path == "/stays/search"
+        return httpx.Response(
+            201,
+            json={
+                "data": {
+                    "results": [
+                        {
+                            "id": "srr_fixture",
+                            "accommodation": {"name": "Test Inn"},
+                            "cheapest_rate_total_amount": "95.00",
+                            "cheapest_rate_currency": "USD",
+                        }
+                    ]
+                }
+            },
+        )
+
+    adapter = providers(handler)
+
+    class Script:
+        mode = "chat-json"
+
+        def __init__(self, ai, model, system, context, schemas):
+            self.index = 0
+
+        def feedback(self, msg):
+            pass
+
+        def accept(self, call, output):
+            if call[1] == "search_hotels":
+                self.ref = next(iter(output))
+
+        def step(self):
+            self.index += 1
+            if self.index == 1:
+                name, args = (
+                    "interpret_trip",
+                    TRIP | {"travel_window_quote": "April 12-14"},
+                )
+            elif self.index == 2:
+                name, args = (
+                    "search_hotels",
+                    {
+                        "center": POINT,
+                        "adults": 2,
+                        "check_in": TRIP["start"],
+                        "check_out": TRIP["end"],
                     },
                 )
-            return httpx.Response(200, json=report.model_dump(mode="json"))
+            else:
+                name, args = (
+                    "finish",
+                    {
+                        "trip": TRIP,
+                        "candidates": [
+                            {
+                                "items": [
+                                    {
+                                        "evidence": self.ref,
+                                        "start": "2027-04-12T15:00:00+01:00",
+                                        "end": "2027-04-14T10:00:00+01:00",
+                                    }
+                                ]
+                            }
+                        ],
+                    },
+                )
+            return [(str(self.index), name, json.dumps(args))]
 
-    monkeypatch.setattr(httpx, "post", post)
-    ui = AppTest.from_file(str(Path(__file__).resolve().parents[1] / "app.py")).run()
-    assert not ui.radio
-    ui.button[0].click().run()
-    assert not ui.exception and ui.metric[0].value == "$579.68"
-    assert "Agent execution" in [t.label for t in ui.tabs]
-    ui.text_area[0].set_value("Plan a trip")
-    ui.button[0].click().run()
-    assert not ui.exception and "departure" in ui.error[0].value and not ui.metric
+    monkeypatch.delenv("SERPAPI_API_KEY", raising=False)
+    monkeypatch.setenv("DUFFEL_ACCESS_TOKEN", "duffel_live_fixture")
+    monkeypatch.setattr(agent.llm, "Dialogue", Script)
+    result = agent.plan(
+        Submission(prompt="Find a hotel in Lisbon for two, April 12-14."),
+        ai=object(),
+        providers=adapter,
+    )
+    revised = agent.plan(
+        Submission(prompt="Keep that hotel", conversation=result["conversation"]),
+        ai=object(),
+        providers=adapter,
+    )
+    assert revised["selected"]["known_total"] == "95.00" and len(requests) == 2
+    assert any(e["state"] == "reused" for e in revised["trace"])
+
+
+def test_map_listing_cannot_supply_an_overnight_stay():
+    from travel.models import Finish
+
+    session = agent.Session()
+    session.evidence["hotel"] = record(
+        "place", "Unquoted inn", "fixture", details={"osm_value": "hotel"}
+    )
+    slot = {
+        "evidence": "hotel",
+        "start": "2027-04-12T14:00:00+01:00",
+        "end": "2027-04-14T10:00:00+01:00",
+    }
+    proposal = Finish(trip=Trip(**TRIP), candidates=[Candidate(items=[slot])])
+    selected = agent.finalize_schedule(
+        proposal, session, None, [], lambda *a, **kw: None
+    )["selected"]
+    assert not selected["items"] and selected["known_total"] is None
+    assert any("requires dated availability" in g for g in selected["gaps"])
+
+
+def test_missing_quotes_do_not_pause_a_sourced_itinerary(monkeypatch):
+    from travel.request import Submission
+
+    calls = [
+        ("interpret_trip", TRIP | {"duration_days": 3}),
+        (
+            "search_hotels",
+            {
+                "center": POINT,
+                "adults": 2,
+                "check_in": TRIP["start"],
+                "check_out": TRIP["end"],
+            },
+        ),
+        (
+            "search_flights",
+            {
+                "adults": 2,
+                "slices": [
+                    {
+                        "origin": "BOS",
+                        "destination": "LIS",
+                        "departure_date": TRIP["start"],
+                    }
+                ],
+            },
+        ),
+        ("search_web", {"query": "Museum in Lisbon"}),
+        (
+            "clarify",
+            {"missing": "party", "question": "Should I continue without live quotes?"},
+        ),
+        (
+            "clarify",
+            {
+                "missing": "ambiguous place",
+                "question": "Should I wait for bookable inventory?",
+            },
+        ),
+        (
+            "finish",
+            {
+                "trip": TRIP | {"end": "2027-04-15", "duration_days": 3},
+                "candidates": [
+                    {
+                        "items": [
+                            {
+                                "evidence": "E1",
+                                "web_activity": "Lisbon Museum",
+                                "start": "2027-04-13T10:00:00+01:00",
+                                "end": "2027-04-13T12:00:00+01:00",
+                            }
+                        ]
+                    }
+                ],
+            },
+        ),
+    ]
+
+    class Script:
+        mode = "responses"
+
+        def __init__(self, *args):
+            self.steps = iter(calls)
+
+        def feedback(self, message):
+            pass
+
+        def step(self):
+            name, args = next(self.steps)
+            if name == "clarify":
+                assert all(tool["name"] != "clarify" for tool in self.schemas)
+            return [(name, name, json.dumps(args))]
+
+        def accept(self, call, output):
+            if call[1] == "clarify":
+                assert "Continue in this turn" in output["error"]
+
+    class InventoryUnavailable:
+        def search_hotels(self, args):
+            raise Unavailable("Configure DUFFEL_ACCESS_TOKEN on the backend.")
+
+        def search_flights(self, args):
+            return []
+
+        def search_web(self, args):
+            return [
+                record("web", "Lisbon Museum", "fixture", "https://example.com/museum")
+            ]
+
+    monkeypatch.setenv("TRAVEL_MAX_ROUNDS", "12")
+    monkeypatch.setattr(agent.llm, "Dialogue", Script)
+    report = agent.plan(
+        Submission(
+            prompt="Plan Boston to Lisbon for two for 3 days, departing April 12, 2027 and returning April 15, 2027."
+        ),
+        ai=object(),
+        providers=InventoryUnavailable(),
+    )
+    assert "question" not in report
+    assert report["trip"]["end"] == "2027-04-15"
+    assert (
+        "The specified dates span 3 nights and 4 calendar days."
+        in report["trip"]["assumptions"]
+    )
+    assert report["selected"]["items"][0]["name"] == "Lisbon Museum"
+    assert report["selected"]["known_total"] is None
+    assert (
+        "No verified live flight quote in this itinerary." in report["selected"]["gaps"]
+    )
+    assert (
+        "No verified live hotel quote in this itinerary." in report["selected"]["gaps"]
+    )

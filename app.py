@@ -1,210 +1,204 @@
+import base64
+import json
 import os
-from datetime import datetime, timedelta
+from pathlib import Path
+from urllib.parse import urlsplit
 
 import httpx
 import streamlit as st
-from dotenv import load_dotenv
 
-from travel.scenarios import SCENARIOS
+assets = Path(__file__).resolve().parent / "assets"
+mark = str(assets / "travelAGENT.png")
+st.set_page_config(
+    page_title="travelAGENT",
+    page_icon=mark,
+    layout="wide",
+    menu_items={
+        "About": "travelAGENT researches and compares sourced travel itineraries."
+    },
+)
+api = os.getenv("TRAVEL_API_URL", "http://127.0.0.1:8000").rstrip("/")
 
-load_dotenv()
-st.set_page_config(page_title="Wayledger · Trip planner", layout="wide")
 
-
-def usd(cents):
-    return f"${cents / 100:,.2f}"
+def details(row):
+    st.caption(
+        f"{row['provider']} · retrieved {row['retrieved']} · {row['availability']}"
+    )
+    price_label = (
+        "Published price snapshot"
+        if row["price_status"] == "published" and row["kind"] in {"flight", "hotel"}
+        else row["price_status"]
+    )
+    st.write(
+        f"{price_label} · "
+        + (
+            f"{row['currency']} {row['amount']} ({row['basis']})"
+            if row["amount"] is not None
+            else "Price unknown"
+        )
+    )
+    if row["source"] and urlsplit(row["source"]).scheme in {"https", "http"}:
+        label = (
+            "View Google Flights search"
+            if row["provider"] == "Google Flights via SerpApi"
+            and row["kind"] == "flight"
+            else "View source"
+        )
+        st.markdown(
+            f"[{label}](<"
+            + row["source"].replace(">", "%3E").replace("<", "%3C")
+            + ">)"
+        )
+    data = row["details"]
+    if fetched := data.get("search_created_at") or data.get("created_at"):
+        st.caption(f"Provider search time · {fetched}")
+    if row["kind"] == "flight":
+        for flight_slice in data["slices"]:
+            for seg in flight_slice["segments"]:
+                st.write(
+                    f"{seg['airline']} {seg.get('marketing_carrier_flight_number', '')} · {seg['origin']['iata_code']} {seg['departing_at']} → {seg['destination']['iata_code']} {seg['arriving_at']}"
+                )
+    elif row["kind"] == "hotel":
+        st.write(
+            f"{data['check_in']} to {data['check_out']} · {data['adults']} adult(s)"
+        )
+    elif row["kind"] == "route":
+        st.write(f"{data['seconds'] / 60:.0f} minutes · {data['meters'] / 1000:.1f} km")
+    elif row["kind"] == "web":
+        st.text(data.get("research_summary") or data.get("snippet", ""))
+    st.json(data, expanded=False)
 
 
 def results(report):
-    trip, best = report["request"], report["selected"]
-    hotel, ride = best["hotel"], best["transport"]
-    st.divider()
-    st.header(f"{trip['origin']} → {trip['destination']}")
-    days = hotel["nights"] + 1
-    st.caption(
-        f"{trip['departure']} through {trip['returning']} · {days} days · "
-        f"{trip['travelers']} traveler(s) · Simulated estimates in USD"
-    )
-    if not best["feasible"]:
-        st.warning("No complete trip fits your budget. Showing the smallest shortfall.")
-    a, b, c = st.columns(3)
-    a.metric("Whole trip", usd(best["total_cents"]))
-    b.metric(
-        "Budget remaining" if best["feasible"] else "Over budget",
-        usd(abs(best["remaining_cents"])),
-    )
-    c.metric("Round-trip service", ride["mode"].title())
-    st.write(
-        f"**{ride['provider']}** via {ride['terminal']} · "
-        + (
-            f"{hotel['nights']} nights at **{hotel['name']}**, {hotel['district']}"
-            if hotel["nights"]
-            else "Day trip"
+    st.caption("travelAGENT itinerary" if "selected" in report else "travelAGENT")
+    if "question" in report:
+        st.write(report["question"])
+    if "incomplete" in report:
+        st.warning(report["incomplete"])
+    evidence = report["evidence"]
+    if "selected" in report:
+        trip, selected = report["trip"], report["selected"]
+        st.subheader(" → ".join([trip["origin"], *trip["destinations"]]))
+        st.caption(f"{trip['start']} to {trip['end']} · {trip['adults']} adult(s)")
+        for assumption in trip["assumptions"]:
+            st.caption("Assumption · " + assumption)
+        st.metric(
+            "Partial total for the party",
+            f"{selected['currency']} {selected['known_total']}"
+            if selected["known_total"] is not None
+            else "No verified prices",
         )
-    )
-    st.write(report["explanation"])
-    with st.expander("Interpreted constraints"):
-        st.json(trip)
-    route, budget, choices, trace = st.tabs(
-        ["Itinerary", "Cost ledger", "Alternatives", "Agent execution"]
-    )
-    with route:
-        events = best["events"]
-        for i in range(days):
-            day = datetime.fromisoformat(trip["departure"]) + timedelta(days=i)
-            items = [e for e in events if e["start"][:10] == day.date().isoformat()]
-            expenses = sum(e["cents"] for e in items) + best["costs"]["meals"] // days
-            if i < hotel["nights"]:
-                expenses += (
-                    best["costs"]["accommodation"] + best["costs"]["fees"]
-                ) // hotel["nights"]
-            with st.expander(f"{day:%a, %b %d}   ·   {usd(expenses)}", expanded=i == 0):
-                st.table(
-                    [
-                        {
-                            "Time": e["start"][11:16] + " – " + e["end"][11:16],
-                            "Stop or connection": e["title"],
-                            "Duration": str(
-                                (
-                                    datetime.fromisoformat(e["end"])
-                                    - datetime.fromisoformat(e["start"])
-                                ).seconds
-                                // 60
-                            )
-                            + " min",
-                            "Party cost": usd(e["cents"]),
-                        }
-                        for e in items
-                    ]
-                )
-                st.caption(
-                    "Daily totals include the meal allowance and any overnight room and tax."
-                )
-    with budget:
-        labels = [
-            "Round-trip tickets",
-            "Rooms",
-            "Terminal transfers",
-            "Local journeys",
-            "Admissions",
-            "Meals",
-            "Lodging tax",
-        ]
-        keys = [
-            "primary",
-            "accommodation",
-            "transfers",
-            "local",
-            "activities",
-            "meals",
-            "fees",
-        ]
-        st.table(
-            [
-                {"Expense": label, "Party total": usd(best["costs"][key])}
-                for label, key in zip(labels, keys)
-            ]
-        )
-        st.caption(
-            f"{hotel['rooms']} room(s) × {hotel['nights']} nights × {usd(hotel['nightly_cents'])} per room."
-        )
-        for note in report["assumptions"]:
-            st.write("• " + note)
-    with choices:
-        st.caption(
-            "Lower scores rank first within budget. When all trips exceed budget, smallest shortfall ranks first."
-        )
-        rows = [
-            dict(best, mode=ride["mode"], hotel=hotel["name"]),
-            *report["alternatives"],
-        ]
-        st.dataframe(
-            [
-                {
-                    "Travel": r["mode"],
-                    "Lodging": r["hotel"] if hotel["nights"] else "Day trip",
-                    "Total": usd(r["total_cents"]),
-                    "Cost difference": usd(r["total_cents"] - best["total_cents"]),
-                    "Travel (min)": r["travel_minutes"],
-                    "Difference (min)": r["travel_minutes"] - best["travel_minutes"],
-                    "Visits": r["visits"],
-                    "Within budget": r["feasible"],
-                    "Score": r["score"],
-                }
-                for r in rows
-            ],
-            hide_index=True,
-        )
-    with trace:
-        st.caption(
-            f"AI planner · {len(report['trace'])} tool calls · simulated catalog"
-        )
-        for i, call in enumerate(report["trace"], 1):
-            with st.expander(f"{i:02d}   {call['tool']}"):
-                st.json(call)
+        for problem in selected["issues"]:
+            st.error(problem)
+        last_day = None
+        for item in selected["items"]:
+            day = item["start"][:10]
+            if day != last_day:
+                st.markdown("#### " + day)
+                last_day = day
+            with st.expander(item["start"][11:16] + " · " + item["name"]):
+                st.write(f"{item['start']} → {item['end']} · {item['timing']} times")
+                if item["evidence"]:
+                    details(evidence[item["evidence"]])
+        if selected["gaps"]:
+            with st.expander("Unresolved trip details", expanded=True):
+                for gap in selected["gaps"]:
+                    st.write("• " + gap)
+        if selected["costs"]:
+            with st.expander("Itemized costs"):
+                st.dataframe(selected["costs"], hide_index=True)
+        if report["alternatives"]:
+            with st.expander("Alternative schedules"):
+                st.json(report["alternatives"], expanded=False)
+    with st.expander(f"Sources and search alternatives ({len(evidence)})"):
+        for row in evidence.values():
+            st.write(row["name"])
+            details(row)
+    with st.expander("travelAGENT research activity"):
+        st.caption(report["model"] + " · " + str(report["api_mode"]))
+        st.json(report["trace"], expanded=False)
 
 
-st.caption("WAYLEDGER  /  NORTHEAST TRIP PLANNER")
-st.title("Plan the whole trip")
-st.write(
-    "Compare round-trip fares, rooms and the journeys in between. Depart from New York City for Boston or Philadelphia."
-)
-with st.form("request"):
-    prompt = st.text_area("Describe your trip", SCENARIOS["A"], height=100)
-    with st.expander("Trip settings"):
-        st.caption("These fields override details in your request.")
-        a, b = st.columns(2)
-        destination = a.selectbox("Destination", ["Boston", "Philadelphia"], index=None)
-        travelers = b.number_input("Travelers", min_value=1, max_value=8, value=None)
-        departure = a.date_input("Depart", value=None)
-        returning = b.date_input("Return", value=None)
-        amount = a.number_input(
-            "Total budget (USD)", min_value=0.01, max_value=1000000.0, value=None
-        )
-        priority = b.selectbox(
-            "Ranking preference", ["balanced", "cost", "time"], index=None
-        )
-    st.caption(
-        "The AI planner compares simulated fares and schedules. Include dates, party size and total budget."
-    )
-    submitted = st.form_submit_button("Compare trips", type="primary")
-if submitted:
-    st.session_state.pop("report", None)
-    overrides = {
-        "destination": destination,
-        "travelers": travelers,
-        "departure": departure,
-        "returning": returning,
-        "budget_usd": amount,
-        "priority": priority,
-    }
-    overrides = {
-        k: (v.isoformat() if hasattr(v, "isoformat") else v)
-        for k, v in overrides.items()
-        if v is not None
-    }
-    try:
-        with st.spinner("AI is checking constraints and comparing complete journeys…"):
-            response = httpx.post(
-                os.getenv("TRAVEL_API_URL", "http://127.0.0.1:8000") + "/plan",
-                json={"prompt": prompt, "overrides": overrides},
-                timeout=660,
+# This local template contains only fixed branding and document metadata.
+header = (assets / "header.html").read_text(encoding="utf-8")
+icon_data = base64.b64encode(Path(mark).read_bytes()).decode("ascii")
+st.html(header.replace("{{mark}}", icon_data), unsafe_allow_javascript=True)
+with st.sidebar:
+    st.markdown("### travelAGENT")
+    if st.button("New trip"):
+        st.session_state.pop("conversation", None)
+        st.session_state["turns"] = []
+        st.rerun()
+    if st.button("Load available models"):
+        try:
+            response = httpx.get(api + "/models", timeout=30)
+            response.raise_for_status()
+            st.session_state["models"] = response.json()["models"]
+        except httpx.HTTPError:
+            st.warning(
+                "travelAGENT couldn't load the model list. Enter a model ID or use the server default."
             )
-            if response.is_success:
-                st.session_state.report = response.json()
-            else:
-                detail = response.json().get("detail")
-                st.error(
-                    detail.get("message")
-                    if isinstance(detail, dict)
-                    else "Check the trip fields and try again."
+    model = st.selectbox(
+        "Planning model",
+        st.session_state.get("models", []),
+        index=None,
+        accept_new_options=True,
+        placeholder="Server default",
+    )
+for prompt, report in st.session_state.setdefault("turns", []):
+    st.chat_message("user").write(prompt)
+    with st.chat_message("travelAGENT", avatar=mark):
+        results(report)
+if prompt := st.chat_input("Where would you like to go?"):
+    st.chat_message("user").write(prompt)
+    with st.chat_message("travelAGENT", avatar=mark):
+        try:
+            body = {
+                "prompt": prompt,
+                "conversation": st.session_state.get("conversation"),
+                "model": model,
+            }
+            with st.status(
+                "travelAGENT is researching your trip", expanded=True
+            ) as progress:
+                with httpx.stream(
+                    "POST", api + "/plan/stream", json=body, timeout=150
+                ) as response:
+                    if response.status_code == 404:
+                        raise ValueError(
+                            "The connected backend is missing the trip streaming endpoint. "
+                            "Restart the travelAGENT API from this project, then retry your request."
+                        )
+                    response.raise_for_status()
+                    report = None
+                    for line in response.iter_lines():
+                        event = json.loads(line)
+                        if event["event"] == "progress":
+                            e = event["data"]
+                            progress.write(
+                                e["tool"].replace("_", " ")
+                                + " · "
+                                + e["state"]
+                                + " "
+                                + str(e.get("message", ""))
+                            )
+                        elif event["event"] == "error":
+                            raise ValueError(event["message"])
+                        elif event["event"] == "result":
+                            report = event["data"]
+                    if report is None:
+                        raise ValueError(
+                            "Research stream ended before a report arrived."
+                        )
+                progress.update(
+                    label="travelAGENT needs a trip detail"
+                    if "question" in report
+                    else "travelAGENT research complete",
+                    state="complete",
+                    expanded=False,
                 )
-                if isinstance(detail, dict) and detail.get("trace"):
-                    with st.expander("Execution trace"):
-                        st.json(detail["trace"])
-    except (httpx.HTTPError, ValueError):
-        st.error(
-            "Could not read the planner response. Check that the FastAPI server is running and try again."
-        )
-if "report" in st.session_state:
-    results(st.session_state.report)
+            st.session_state.conversation = report["conversation"]
+            st.session_state.turns.append((prompt, report))
+            results(report)
+        except (httpx.HTTPError, ValueError) as exc:
+            st.error(f"travelAGENT couldn't finish this request. {exc}")

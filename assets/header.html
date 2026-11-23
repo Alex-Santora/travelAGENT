@@ -1,0 +1,41 @@
+<style>
+  .ta-header {
+    padding: clamp(1rem, 3vw, 2.25rem) 0 1.5rem;
+    border-bottom: 1px solid #b9cdd4;
+    margin-bottom: 1rem;
+  }
+  .ta-header h1 {
+    display: flex;
+    gap: .24em;
+    align-items: center;
+    font: 450 clamp(2rem, 7vw, 4.75rem)/1.1 system-ui, sans-serif;
+    letter-spacing: -.065em;
+    color: #172d42;
+    margin: 0;
+    padding: 0;
+  }
+  .ta-header h1 strong { font-weight: 750; color: #145c70; }
+  .ta-header img { width: .9em; height: .9em; }
+  .ta-header p { margin: 1rem 0 0; max-width: 50ch; color: #385566; }
+  @media (prefers-contrast: more) {
+    .ta-header p { color: #172d42; }
+  }
+</style>
+<header class="ta-header">
+  <h1><img src="data:image/png;base64,{{mark}}" alt=""><span>travel<strong>AGENT</strong></span></h1>
+  <p>Share your dates, budget and priorities. Plan flights, stays and local travel with sources for each stop.</p>
+</header>
+<script>
+  (() => {
+    const tags = {
+      description: "Plan trips with travelAGENT, an AI travel planner that researches flights, stays and local routes and compares sourced itineraries.",
+      "application-name": "travelAGENT"
+    };
+    for (const [name, content] of Object.entries(tags)) {
+      const meta = document.head.querySelector('meta[name="' + name + '"]') || document.createElement("meta");
+      meta.name = name;
+      meta.content = content;
+      if (!meta.isConnected) document.head.appendChild(meta);
+    }
+  })();
+</script>

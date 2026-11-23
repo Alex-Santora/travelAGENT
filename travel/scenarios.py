@@ -1,5 +1,5 @@
 SCENARIOS = {
-    "A": "Plan a four-day trip from New York City to Boston starting April 12, 2027 for one traveler with a $900 total budget.",
-    "B": "Plan the cheapest three-day trip from NYC to Philadelphia starting April 12, 2027 for one traveler with $850. I like history.",
-    "C": "Plan four days from NYC to Boston starting April 12, 2027 for two travelers on a $120 total budget.",
+    "A": "Plan a trip from Boston to Tokyo and Kyoto for two adults, April 12–22, 2027. Our total budget is $8,000. We want sightseeing, Japanese food, and at least one round of golf. Include flights, hotels, intercity transport, airport transfers and a realistic daily itinerary.",
+    "B": "Plan a 9-day trip from New York to Lisbon and Porto for two adults in May 2027, including flights, accommodation, train transportation, restaurants, and attractions. Choose sample dates.",
+    "C": "I have $2,000 and five days off in March. Find me a good trip somewhere warm from Boston.",
 }

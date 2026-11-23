@@ -1,66 +1,56 @@
-# Wayledger
+# travelAGENT
 
-Wayledger is an M3 engineering prototype that uses an LLM to plan complete trips from New York City to Boston or Philadelphia. It compares round-trip services, terminal transfers, hotel nights, local travel, visits, meals and lodging tax. All travel inventory is simulated.
+**M3 · Track A · Working prototype**
 
-## Run locally on Windows
+travelAGENT is a read-only AI trip planner. Describe a trip in Streamlit and revise it in the same chat. The FastAPI backend asks for missing essentials, calls travel and research tools, then returns a timed itinerary with sources, alternatives, a partial party cost, and any unresolved details. See [DESIGN.md](DESIGN.md) for the architecture, scheduling rules, and provider assumptions.
 
-From the repository root, install the dependencies and configure the backend.
+## M3 rubric
+
+| Criterion | Prototype evidence |
+| --- | --- |
+| M3.1 · Core functionality (20) | A natural-language request runs through clarification, provider lookups, schedule checks, and ranking. The chat supports follow-up revisions. |
+| M3.2 · Component scope (15) | The planner includes the UI, API, model tool loop, travel inventory, scheduler, cost ledger, and execution trace. The earlier checked-in design is the comparison baseline. A standalone M2 proposal is unavailable in this repository. |
+| M3.3 · Execution evidence (25) | Run the app or CLI below. The UI shows research activity, item sources, and gaps. CLI output includes the same trace and evidence as JSON. The checked-in `evidence/` files document the earlier simulation. |
+| M3.4 · Engineering rigor (20) | Pydantic validates tool inputs. The agent bounds lookups and handles provider failures. Python checks schedule timing and computes costs from provider records. Tests cover call protocols, errors, scheduling, and missing prices. |
+| M3.5 · Architecture alignment (10) | Streamlit, FastAPI, and the tool-calling loop carry over from the earlier design. Provider adapters replace the two-route simulation and estimated allowances, expanding coverage and making price gaps visible. The model layer now also supports validated JSON actions. |
+| M3.6 · Documentation (10) | This README gives setup and inspection steps. [DESIGN.md](DESIGN.md) describes the implementation and tradeoffs. |
+
+## MVP gaps and next steps
+
+A saved local Japan run recorded 16 returned tool events, 13 unavailable events, and 19 unresolved details. The CLI below can generate a fresh report from the configured providers.
+
+- **Coverage and cost.** Rail fares, local transit schedules, fees, and some flight or hotel prices can be missing. A partial subtotal under budget leaves affordability unresolved. Next, improve rail and transit sourcing and measure fare coverage across the demo trips.
+- **Feasibility and search.** Opening hours, future timetables, and connection buffers can leave a schedule needing review. The planner ranks a limited set of candidates. Next, validate transfer windows and day-by-day timing against provider data on multi-city trips.
+- **Reliability.** Provider quotas, timeouts, and model variability can interrupt research. Chat history lives in one backend process and expires after one idle hour. Next, capture repeatable live traces and track latency, successful lookups, and unresolved items across runs.
+
+## Run locally
+
+From the repository root in PowerShell, use Python 3.13 and create a virtual environment. The copy command preserves an existing `.env`.
 
 ```powershell
 py -3.13 -m venv .venv
 .\.venv\Scripts\python -m pip install -r requirements.txt
-Copy-Item .env.example .env
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
 notepad .env
 ```
 
-Set `OPENAI_API_KEY` in the new file. Select a Chat Completions model with native function calling via `OPENAI_MODEL`. Start the API.
+Set `OPENAI_API_KEY` to an API key with billing access. The example uses `gpt-4.1-mini`. For dated flight and hotel results, add `SERPAPI_API_KEY` for published prices or a live `DUFFEL_ACCESS_TOKEN` for inventory quotes. Duffel hotel quotes also require Stays access. SerpApi takes precedence when configured. `GOOGLE_MAPS_API_KEY` adds Places and Routes coverage. Restart the backend after editing `.env`. To use a running local Ollama server, set `TRAVEL_LLM_PROVIDER=ollama` and `OLLAMA_MODEL` to an installed model.
+
+Start the API, then start Streamlit from a second terminal in the repository root.
 
 ```powershell
 .\.venv\Scripts\python -m uvicorn travel.api:app --host 127.0.0.1 --port 8000
 ```
 
-In another terminal in the same directory, start Streamlit.
-
 ```powershell
 .\.venv\Scripts\python -m streamlit run app.py --server.address 127.0.0.1
 ```
 
-Open [the planner](http://127.0.0.1:8501). Try “Plan the cheapest three-day trip from NYC to Philadelphia starting April 12, 2027 for one traveler with an $850 total budget. I like history.” Select **Compare trips**. Inspect the constraints, itinerary, cost ledger, alternatives and **Agent execution**. If the agent asks for details, edit the form and resubmit. The [API explorer](http://127.0.0.1:8000/docs) also accepts a prompt and optional overrides.
+Open the [planner](http://127.0.0.1:8501). Try “Plan a trip from Boston to Tokyo for two adults, April 12–19, 2027, with a total budget of $5,000. Include flights, hotels, and sightseeing.” Open **travelAGENT research activity** and expand individual itinerary items to inspect the trace and sources. The [API explorer](http://127.0.0.1:8000/docs) also exposes `POST /plan`.
 
-## Configuration
-
-| Variable | Use |
-|---|---|
-| OPENAI_API_KEY | Server credential for OpenAI. Requests send the prompt, settings and tool results to that provider |
-| OPENAI_MODEL | OpenAI model name, default gpt-4o-mini |
-| TRAVEL_LLM_PROVIDER | openai (default) or ollama |
-| OLLAMA_MODEL | Required for Ollama. Use an installed model that supports tools, with the local Ollama server running on port 11434 |
-| TRAVEL_MAX_ROUNDS | Model turns per plan, default 12, valid range 1–30 |
-| TRAVEL_API_URL | UI backend address, default http://127.0.0.1:8000 |
-
-Restart the API after changing provider settings. Ollama uses its local OpenAI-compatible endpoint and a placeholder SDK credential. Provider errors appear with the completed tool trace. The application requires a functioning model to produce a plan.
-
-## How a plan is made
-
-The model extracts the route, dates or duration, party size, USD budget and preferences. Form settings take precedence. The agent asks about missing or conflicting essentials. It requests applicable catalog searches, reads their results, invokes estimation and ranking, then inspects the timed itinerary and selects a verified fact to explain the result. The dispatcher validates native function arguments and returns structured results and errors by call ID. The SDK loop supports batched searches and bounded retries.
-
-Python schedules each eligible service and hotel pair and calculates the party total in integer cents. The optimizer ranks feasible plans ahead of over-budget plans and shows the smallest shortfall when none qualify. The local catalog provides illustrative daily services, rooms and activity hours. Meals and local connections are estimates. All supported cities share Eastern time. Coverage is one to eight travelers and one to fourteen days. The activity heuristic schedules at most two visits per day. See [DESIGN.md](DESIGN.md) for assumptions, ranking weights and milestone evaluation.
-
-## Verification
+Run the default test suite without live credentials. The CLI demo uses configured providers and can incur API charges.
 
 ```powershell
 .\.venv\Scripts\python -m pytest -q
-```
-
-The suite uses scripted SDK responses for reproducible orchestration tests. To exercise the actual configured provider, enable the live check explicitly.
-
-```powershell
-$env:TRAVEL_RUN_LIVE = "1"
-.\.venv\Scripts\python -m pytest -q -k live_provider
-```
-
-Run the sample requests through the actual agent with the following command. Adding `--save` writes the current scenario reports into `evidence/`. The original files in that directory are historical development fixtures. Their traces and screenshot predate the current agent.
-
-```powershell
-.\.venv\Scripts\python demo.py --scenario all
+.\.venv\Scripts\python demo.py --scenario A
 ```

@@ -1,139 +1,248 @@
+import itertools
 from datetime import datetime, time, timedelta
-
-from .models import Event
-
-
-def minutes(n):
-    return timedelta(minutes=n)
+from zoneinfo import ZoneInfo
 
 
-def link(a, b, travelers):
-    distance = sum(abs(x - y) for x, y in zip(a, b))
-    if distance <= 18:
-        return "Walk", distance, 0
-    if distance <= 48:
-        return "Local transit", 10 + distance // 3, 300 * travelers
-    return "Regional shuttle", 15 + distance // 2, 2600 * travelers
+def airport_time(segment, field, airport):
+    stamp = datetime.fromisoformat(segment[field])
+    if stamp.tzinfo is None:
+        stamp = stamp.replace(tzinfo=ZoneInfo(segment[airport]["time_zone"]))
+    return stamp
 
 
-def generate_schedule(t, ride, hotel, activities):
-    events = []
-
-    def add(start, duration, title, category="buffer", cents=0):
-        end = start + minutes(duration)
-        if duration:
-            events.append(
-                Event(start=start, end=end, title=title, category=category, cents=cents)
+def inside_hours(hours, start, end):
+    periods = hours.get("periods")
+    if periods is None:
+        return None
+    for period in periods:
+        first, last = period["open"], period.get("close")
+        if last is None:
+            return (
+                True
+                if first.get("day") == 0
+                and not first.get("hour")
+                and not first.get("minute")
+                else None
             )
-        return end
+        # Google numbers Sunday as zero. Include a period starting the previous week.
+        sunday = start.date() - timedelta(days=(start.weekday() + 1) % 7)
+        for offset in (0, -7):
 
-    depart, arrive = ride.outbound
-    back, home = ride.inbound
-    access = ride.access_minutes
-    check = ride.checkin_minutes
-    access_cost = ride.access_cents_pp * t.travelers
-    fare = ride.fare_each_way_cents * t.travelers
-    add(
-        depart - minutes(access + check),
-        access,
-        "City center to origin terminal",
-        "transfers",
-        access_cost,
-    )
-    add(depart - minutes(check), check, "Boarding buffer")
-    add(
-        depart,
-        (arrive - depart) // minutes(1),
-        f"{ride.provider} to {ride.terminal}",
-        "primary",
-        fare,
-    )
-    base = hotel.location if t.nights else ride.location
-    base_name = hotel.name if t.nights else ride.terminal
-    method, duration, cost = link(ride.location, base, t.travelers)
-    add(arrive, duration, f"{method} to {base_name}", "transfers", cost)
-    ready = arrive + minutes(duration)
-    deadline = back - minutes(check + duration)
-    available = list(activities)
-    matches = visits = usable = 0
-    for offset in range(t.nights + 1):
-        day = t.departure + timedelta(days=offset)
-        cursor = ready if not offset else datetime.combine(day, time(9))
-        end = deadline if day == t.returning else datetime.combine(day, time(19))
-        if cursor > end:
-            raise ValueError("Terminal connections cannot fit this schedule.")
-        usable += (end - cursor) // minutes(1)
-        point, place = base, base_name
-        # Short anchor visits leave space for meals, optional exploration and rest.
-        for _ in range(2):
-            choices = []
-            for a in available:
-                leg = link(point, a.location, t.travelers)
-                start = max(
-                    cursor + minutes(leg[1]), datetime.combine(day, time(a.opens))
+            def boundary(point, sunday=sunday, offset=offset):
+                day = sunday + timedelta(days=offset + point["day"])
+                return datetime.combine(day, datetime.min.time(), start.tzinfo).replace(
+                    hour=point.get("hour", 0), minute=point.get("minute", 0)
                 )
-                finish = start + minutes(a.duration)
-                home_leg = link(a.location, base, t.travelers)
+
+            opening, closing = boundary(first), boundary(last)
+            if closing <= opening:
+                closing += timedelta(days=7)
+            if opening <= start and end <= closing:
+                return True
+    return False
+
+
+def checked_times(slot, row):
+    start, end = slot.start, slot.end
+    details = row.details
+    issues = []
+    if row.kind == "hotel":
+        hours = details.get("check_in_information") or {}
+        after = hours.get("check_in_after_time")
+        before = hours.get("check_in_before_time")
+        if after and start.time() < time.fromisoformat(after):
+            issues.append("Arrival before hotel check-in opens")
+        if (
+            before
+            and (not after or before > after)
+            and start.time() > time.fromisoformat(before)
+        ):
+            issues.append("Arrival after hotel check-in closes")
+        if hours.get("check_out_before_time") and end.time() > time.fromisoformat(
+            hours["check_out_before_time"]
+        ):
+            issues.append("Departure after hotel check-out deadline")
+    if row.kind == "flight":
+        segments = details["slices"][slot.slice_index]["segments"]
+        start = airport_time(segments[0], "departing_at", "origin")
+        end = airport_time(segments[-1], "arriving_at", "destination")
+        for prev, nxt in itertools.pairwise(segments):
+            gap = (
+                airport_time(nxt, "departing_at", "origin").timestamp()
+                - airport_time(prev, "arriving_at", "destination").timestamp()
+            )
+            if (
+                gap < 1800
+                or prev["destination"]["iata_code"] != nxt["origin"]["iata_code"]
+            ):
+                issues.append("Flight connection needs manual transfer review")
+    if row.kind == "place":
+        tz = details.get("timeZone") or {}
+        if tz.get("id"):
+            zone = ZoneInfo(tz["id"])
+            if start.utcoffset() != start.astimezone(zone).utcoffset():
+                issues.append("Proposed time zone differs from venue time zone")
+            start, end = start.astimezone(zone), end.astimezone(zone)
+        if details.get("businessStatus", "OPERATIONAL") != "OPERATIONAL":
+            issues.append("Venue marked closed")
+        if inside_hours(details.get("regularOpeningHours", {}), start, end) is False:
+            issues.append("Visit is outside published opening hours")
+    if (
+        row.kind == "route"
+        and end.timestamp() - start.timestamp() + 1 < details["seconds"]
+    ):
+        issues.append("Time allotted is shorter than the provider route")
+    if end.timestamp() <= start.timestamp():
+        issues.append("End must follow start")
+    return start, end, issues
+
+
+def fill_visit_days(finish, evidence, distance):
+    """Propose visits only from researched venues in the requested destinations."""
+    from .models import Slot
+
+    trip = finish.trip
+    span = (trip.end - trip.start).days
+    if (
+        not (trip.daily_visits or trip.open_destination)
+        or span < 2
+        or span > 60
+        or not trip.destinations
+    ):
+        return
+    cities = []
+    for name in trip.destinations:
+        matches = [
+            r
+            for r in evidence.values()
+            if r.kind == "location"
+            and r.name.casefold() == name.split(",")[0].strip().casefold()
+            and r.details.get("timezone")
+        ]
+        if not matches:
+            return
+        # Ambiguous names need support from nearby researched venues.
+        options = []
+        for city in matches:
+            nearby = []
+            for ref, place in evidence.items():
+                d = place.details
+                point = d.get("location")
                 if (
-                    finish > datetime.combine(day, time(a.closes))
-                    or finish + minutes(home_leg[1] + 15) > end
+                    place.kind != "place"
+                    or not point
+                    or point.get("latitude") is None
+                    or point.get("longitude") is None
                 ):
                     continue
-                choices.append(
-                    (
-                        (
-                            a.interest not in t.interests,
-                            (start - cursor) // minutes(1),
-                            a.name,
-                        ),
-                        a,
-                        leg,
-                        start,
-                        finish,
+                category = d.get("osm_value") or d.get("primaryType")
+                if category not in {
+                    "golf_course",
+                    "museum",
+                    "art_gallery",
+                    "gallery",
+                    "tourist_attraction",
+                    "attraction",
+                    "castle",
+                    "park",
+                    "garden",
+                    "botanical_garden",
+                    "restaurant",
+                    "aquarium",
+                    "temple",
+                    "shrine",
+                    "place_of_worship",
+                    "historical_landmark",
+                    "monument",
+                    "art_museum",
+                    "market",
+                    "viewpoint",
+                    "theme_park",
+                    "ski_resort",
+                }:
+                    continue
+                if distance(city.details, point) <= 40:
+                    nearby.append((ref, place, category))
+            options.append((city, nearby))
+        city, nearby = max(options, key=lambda match: len(match[1]))
+        cities.append((city, nearby))
+    added = False
+    for candidate in finish.candidates:
+        used = {s.evidence for s in candidate.items}
+        names = {evidence[i].name.casefold() for i in used if i in evidence}
+        for day in range(1, span):
+            date = trip.start + timedelta(days=day)
+            if any(
+                s.start.date() <= date <= s.end.date()
+                for s in candidate.items
+                if evidence.get(s.evidence) and evidence[s.evidence].kind != "hotel"
+            ):
+                continue
+            index = min(len(cities) - 1, (day - 1) * len(cities) // max(1, span - 1))
+            city, venues = cities[index]
+            hotels = [
+                evidence[s.evidence]
+                for s in candidate.items
+                if s.evidence in evidence
+                and evidence[s.evidence].kind == "hotel"
+                and s.start.date() <= date < s.end.date()
+            ]
+            if hotels and not any(
+                distance(city.details, h.details["center"]) <= 40 for h in hotels
+            ):
+                continue
+            zone = ZoneInfo(city.details["timezone"])
+
+            def priority(entry, used=used):
+                words = entry[2].replace("_", " ").split()
+                uses = sum(
+                    evidence[k].details.get(
+                        "osm_value", evidence[k].details.get("primaryType")
                     )
+                    == entry[2]
+                    for k in used
+                    if k in evidence
                 )
-            if not choices:
-                break
-            _, activity, (method, duration_leg, cost_leg), start, finish = min(
-                choices, key=lambda x: x[0]
-            )
-            cursor = add(
-                cursor,
-                duration_leg,
-                f"{method} from {place} to {activity.name}",
-                "local",
-                cost_leg,
-            )
-            add(cursor, (start - cursor) // minutes(1), "Free time before opening")
-            add(
-                start,
-                activity.duration,
-                activity.name,
-                "activities",
-                activity.admission_cents * t.travelers,
-            )
-            cursor = add(finish, 15, "Break")
-            point, place = activity.location, activity.name
-            available.remove(activity)
-            visits += 1
-            matches += activity.interest in t.interests
-        method_local, dur_local, price_local = link(point, base, t.travelers)
-        cursor = add(
-            cursor,
-            dur_local,
-            f"{method_local} back to {base_name}",
-            "local",
-            price_local,
+                return (
+                    uses,
+                    not any(
+                        w in req.casefold() for req in trip.requirements for w in words
+                    ),
+                    entry[2] == "restaurant",
+                )
+
+            for hour in (10, 15):
+                for ref, venue, category in sorted(venues, key=priority):
+                    if category == "golf_course" and any(
+                        evidence[k].details.get(
+                            "osm_value", evidence[k].details.get("primaryType")
+                        )
+                        == "golf_course"
+                        for k in used
+                        if k in evidence
+                    ):
+                        continue
+                    if ref in used or venue.name.casefold() in names:
+                        continue
+                    start = datetime.combine(date, time(hour), zone)
+                    end = start + timedelta(
+                        hours=4 if category == "golf_course" else 1.5
+                    )
+                    if (
+                        inside_hours(
+                            venue.details.get("regularOpeningHours", {}), start, end
+                        )
+                        is False
+                    ):
+                        continue
+                    if any(p.start < end and p.end > start for p in candidate.breaks):
+                        continue
+                    candidate.items.append(Slot(evidence=ref, start=start, end=end))
+                    used.add(ref)
+                    names.add(venue.name.casefold())
+                    added = True
+                    break
+    if added:
+        trip.assumptions.append(
+            "Unscheduled interior days use researched nearby venues, split across the requested city order. Visits allow 90 minutes, or four hours for golf. Times and reservations require confirmation."
         )
-        add(cursor, (end - cursor) // minutes(1), "Free time and meals")
-    add(deadline, duration, f"{method} to {ride.terminal}", "transfers", cost)
-    add(back - minutes(check), check, "Boarding buffer")
-    add(
-        back,
-        (home - back) // minutes(1),
-        f"{ride.provider} to New York City",
-        "primary",
-        fare,
-    )
-    add(home, access, "Origin terminal to city center", "transfers", access_cost)
-    return events, usable, visits, matches
