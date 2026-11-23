@@ -1,0 +1,1302 @@
+{
+  "prompt": "Plan a four-day trip from New York City to Boston with a $900 total budget.",
+  "request": {
+    "origin": "New York City",
+    "destination": "Boston",
+    "departure": "2027-04-12",
+    "returning": "2027-04-15",
+    "budget_cents": 90000,
+    "travelers": 1,
+    "preferred_mode": null,
+    "lodging": null,
+    "interests": [],
+    "priority": "balanced"
+  },
+  "mode": "demo",
+  "assumptions": [
+    "Simulated daily service, prices and attraction hours. All times are local Eastern time.",
+    "Meals budgeted at $35 per traveler per day. Rooms sleep two. Simulated lodging tax is 12%.",
+    "Transfers start and end in central New York City. Hotel luggage storage assumed on travel days.",
+    "Default travelers = 1.",
+    "Default departure = 2027-04-12."
+  ],
+  "trace": [
+    {
+      "tool": "set_trip",
+      "inputs": {
+        "origin": "New York City",
+        "destination": "Boston",
+        "days": 4,
+        "budget_usd": "900",
+        "interests": [],
+        "overrides": {}
+      },
+      "output": {
+        "origin": "New York City",
+        "destination": "Boston",
+        "departure": "2027-04-12",
+        "returning": "2027-04-15",
+        "budget_cents": 90000,
+        "travelers": 1,
+        "preferred_mode": null,
+        "lodging": null,
+        "interests": [],
+        "priority": "balanced"
+      },
+      "error": null
+    },
+    {
+      "tool": "search_flights",
+      "inputs": {
+        "request": {
+          "origin": "New York City",
+          "destination": "Boston",
+          "departure": "2027-04-12",
+          "returning": "2027-04-15",
+          "budget_cents": 90000,
+          "travelers": 1,
+          "preferred_mode": null,
+          "lodging": null,
+          "interests": [],
+          "priority": "balanced"
+        }
+      },
+      "output": [
+        {
+          "source": "Corridor demo catalog v1",
+          "reliability": "simulated",
+          "mode": "air",
+          "provider": "Corridor Air",
+          "origin": "New York City",
+          "destination": "Boston",
+          "terminal": "Outer Boston regional terminal",
+          "location": [
+            47,
+            42
+          ],
+          "outbound": [
+            "2027-04-12T08:00:00",
+            "2027-04-12T09:15:00"
+          ],
+          "inbound": [
+            "2027-04-15T18:00:00",
+            "2027-04-15T19:15:00"
+          ],
+          "fare_each_way_cents": 2400,
+          "party_roundtrip_cents": 4800,
+          "access_minutes": 45,
+          "access_cents_pp": 1200,
+          "checkin_minutes": 60,
+          "restrictions": "Personal item only",
+          "roundtrip_ride_minutes": 150
+        }
+      ],
+      "error": null
+    },
+    {
+      "tool": "search_ground_transport",
+      "inputs": {
+        "request": {
+          "origin": "New York City",
+          "destination": "Boston",
+          "departure": "2027-04-12",
+          "returning": "2027-04-15",
+          "budget_cents": 90000,
+          "travelers": 1,
+          "preferred_mode": null,
+          "lodging": null,
+          "interests": [],
+          "priority": "balanced"
+        }
+      },
+      "output": [
+        {
+          "source": "Corridor demo catalog v1",
+          "reliability": "simulated",
+          "mode": "rail",
+          "provider": "Northeast Rail",
+          "origin": "New York City",
+          "destination": "Boston",
+          "terminal": "South Station",
+          "location": [
+            6,
+            3
+          ],
+          "outbound": [
+            "2027-04-12T08:00:00",
+            "2027-04-12T12:05:00"
+          ],
+          "inbound": [
+            "2027-04-15T18:00:00",
+            "2027-04-15T22:05:00"
+          ],
+          "fare_each_way_cents": 4600,
+          "party_roundtrip_cents": 9200,
+          "access_minutes": 15,
+          "access_cents_pp": 300,
+          "checkin_minutes": 15,
+          "restrictions": "One carry-on included",
+          "roundtrip_ride_minutes": 490
+        },
+        {
+          "source": "Corridor demo catalog v1",
+          "reliability": "simulated",
+          "mode": "bus",
+          "provider": "Atlantic Coach",
+          "origin": "New York City",
+          "destination": "Boston",
+          "terminal": "South Station coach hall",
+          "location": [
+            7,
+            4
+          ],
+          "outbound": [
+            "2027-04-12T08:00:00",
+            "2027-04-12T12:45:00"
+          ],
+          "inbound": [
+            "2027-04-15T18:00:00",
+            "2027-04-15T22:45:00"
+          ],
+          "fare_each_way_cents": 3200,
+          "party_roundtrip_cents": 6400,
+          "access_minutes": 15,
+          "access_cents_pp": 300,
+          "checkin_minutes": 15,
+          "restrictions": "One carry-on included",
+          "roundtrip_ride_minutes": 570
+        }
+      ],
+      "error": null
+    },
+    {
+      "tool": "search_hotels",
+      "inputs": {
+        "request": {
+          "origin": "New York City",
+          "destination": "Boston",
+          "departure": "2027-04-12",
+          "returning": "2027-04-15",
+          "budget_cents": 90000,
+          "travelers": 1,
+          "preferred_mode": null,
+          "lodging": null,
+          "interests": [],
+          "priority": "balanced"
+        }
+      },
+      "output": [
+        {
+          "source": "Corridor demo catalog v1",
+          "reliability": "simulated",
+          "name": "Harbor House",
+          "style": "central",
+          "location": [
+            4,
+            3
+          ],
+          "district": "Waterfront",
+          "nightly_cents": 11900,
+          "rooms": 1,
+          "nights": 3,
+          "room_total_cents": 35700,
+          "tax_cents": 4284
+        },
+        {
+          "source": "Corridor demo catalog v1",
+          "reliability": "simulated",
+          "name": "Fenway Guesthouse",
+          "style": "value",
+          "location": [
+            23,
+            12
+          ],
+          "district": "Fenway",
+          "nightly_cents": 8800,
+          "rooms": 1,
+          "nights": 3,
+          "room_total_cents": 26400,
+          "tax_cents": 3168
+        }
+      ],
+      "error": null
+    },
+    {
+      "tool": "search_activities",
+      "inputs": {
+        "request": {
+          "origin": "New York City",
+          "destination": "Boston",
+          "departure": "2027-04-12",
+          "returning": "2027-04-15",
+          "budget_cents": 90000,
+          "travelers": 1,
+          "preferred_mode": null,
+          "lodging": null,
+          "interests": [],
+          "priority": "balanced"
+        }
+      },
+      "output": [
+        {
+          "source": "Corridor demo catalog v1",
+          "reliability": "simulated",
+          "name": "Freedom Trail walk",
+          "district": "Downtown",
+          "location": [
+            5,
+            4
+          ],
+          "interest": "history",
+          "duration": 90,
+          "admission_cents": 0,
+          "opens": 9,
+          "closes": 17
+        },
+        {
+          "source": "Corridor demo catalog v1",
+          "reliability": "simulated",
+          "name": "Harborwalk",
+          "district": "Waterfront",
+          "location": [
+            3,
+            2
+          ],
+          "interest": "outdoors",
+          "duration": 60,
+          "admission_cents": 0,
+          "opens": 8,
+          "closes": 18
+        },
+        {
+          "source": "Corridor demo catalog v1",
+          "reliability": "simulated",
+          "name": "Museum of Fine Arts",
+          "district": "Fenway",
+          "location": [
+            22,
+            11
+          ],
+          "interest": "art",
+          "duration": 100,
+          "admission_cents": 2500,
+          "opens": 10,
+          "closes": 17
+        },
+        {
+          "source": "Corridor demo catalog v1",
+          "reliability": "simulated",
+          "name": "Science galleries",
+          "district": "West End",
+          "location": [
+            12,
+            9
+          ],
+          "interest": "science",
+          "duration": 90,
+          "admission_cents": 2200,
+          "opens": 10,
+          "closes": 17
+        },
+        {
+          "source": "Corridor demo catalog v1",
+          "reliability": "simulated",
+          "name": "Public Garden",
+          "district": "Back Bay",
+          "location": [
+            11,
+            6
+          ],
+          "interest": "outdoors",
+          "duration": 60,
+          "admission_cents": 0,
+          "opens": 8,
+          "closes": 18
+        },
+        {
+          "source": "Corridor demo catalog v1",
+          "reliability": "simulated",
+          "name": "Old State House",
+          "district": "Downtown",
+          "location": [
+            6,
+            5
+          ],
+          "interest": "history",
+          "duration": 60,
+          "admission_cents": 1200,
+          "opens": 10,
+          "closes": 17
+        }
+      ],
+      "error": null
+    },
+    {
+      "tool": "estimate_trip_costs",
+      "inputs": {
+        "request": {
+          "origin": "New York City",
+          "destination": "Boston",
+          "departure": "2027-04-12",
+          "returning": "2027-04-15",
+          "budget_cents": 90000,
+          "travelers": 1,
+          "preferred_mode": null,
+          "lodging": null,
+          "interests": [],
+          "priority": "balanced"
+        }
+      },
+      "output": [
+        {
+          "costs": {
+            "primary": 4800,
+            "accommodation": 35700,
+            "transfers": 7600,
+            "local": 300,
+            "activities": 5900,
+            "meals": 14000,
+            "fees": 4284
+          },
+          "total_cents": 72584,
+          "remaining_cents": 17416,
+          "travel_minutes": 548,
+          "destination_minutes": 2153,
+          "visits": 6,
+          "interest_matches": 0,
+          "score": 72084,
+          "feasible": true,
+          "mode": "air",
+          "provider": "Corridor Air",
+          "hotel": "Harbor House"
+        },
+        {
+          "costs": {
+            "primary": 4800,
+            "accommodation": 26400,
+            "transfers": 7600,
+            "local": 900,
+            "activities": 5900,
+            "meals": 14000,
+            "fees": 3168
+          },
+          "total_cents": 62768,
+          "remaining_cents": 27232,
+          "travel_minutes": 560,
+          "destination_minutes": 2181,
+          "visits": 6,
+          "interest_matches": 0,
+          "score": 62318,
+          "feasible": true,
+          "mode": "air",
+          "provider": "Corridor Air",
+          "hotel": "Fenway Guesthouse"
+        },
+        {
+          "costs": {
+            "primary": 9200,
+            "accommodation": 35700,
+            "transfers": 600,
+            "local": 300,
+            "activities": 5900,
+            "meals": 14000,
+            "fees": 4284
+          },
+          "total_cents": 69984,
+          "remaining_cents": 20016,
+          "travel_minutes": 630,
+          "destination_minutes": 2136,
+          "visits": 6,
+          "interest_matches": 0,
+          "score": 70344,
+          "feasible": true,
+          "mode": "rail",
+          "provider": "Northeast Rail",
+          "hotel": "Harbor House"
+        },
+        {
+          "costs": {
+            "primary": 9200,
+            "accommodation": 26400,
+            "transfers": 1200,
+            "local": 900,
+            "activities": 5900,
+            "meals": 14000,
+            "fees": 3168
+          },
+          "total_cents": 60768,
+          "remaining_cents": 29232,
+          "travel_minutes": 702,
+          "destination_minutes": 2104,
+          "visits": 6,
+          "interest_matches": 0,
+          "score": 61928,
+          "feasible": true,
+          "mode": "rail",
+          "provider": "Northeast Rail",
+          "hotel": "Fenway Guesthouse"
+        },
+        {
+          "costs": {
+            "primary": 6400,
+            "accommodation": 35700,
+            "transfers": 600,
+            "local": 300,
+            "activities": 5900,
+            "meals": 14000,
+            "fees": 4284
+          },
+          "total_cents": 67184,
+          "remaining_cents": 22816,
+          "travel_minutes": 714,
+          "destination_minutes": 2092,
+          "visits": 6,
+          "interest_matches": 0,
+          "score": 68494,
+          "feasible": true,
+          "mode": "bus",
+          "provider": "Atlantic Coach",
+          "hotel": "Harbor House"
+        },
+        {
+          "costs": {
+            "primary": 6400,
+            "accommodation": 26400,
+            "transfers": 1200,
+            "local": 900,
+            "activities": 5900,
+            "meals": 14000,
+            "fees": 3168
+          },
+          "total_cents": 57968,
+          "remaining_cents": 32032,
+          "travel_minutes": 782,
+          "destination_minutes": 2064,
+          "visits": 6,
+          "interest_matches": 0,
+          "score": 60028,
+          "feasible": true,
+          "mode": "bus",
+          "provider": "Atlantic Coach",
+          "hotel": "Fenway Guesthouse"
+        }
+      ],
+      "error": null
+    },
+    {
+      "tool": "compare_trip_options",
+      "inputs": {
+        "request": {
+          "origin": "New York City",
+          "destination": "Boston",
+          "departure": "2027-04-12",
+          "returning": "2027-04-15",
+          "budget_cents": 90000,
+          "travelers": 1,
+          "preferred_mode": null,
+          "lodging": null,
+          "interests": [],
+          "priority": "balanced"
+        }
+      },
+      "output": [
+        {
+          "costs": {
+            "primary": 6400,
+            "accommodation": 26400,
+            "transfers": 1200,
+            "local": 900,
+            "activities": 5900,
+            "meals": 14000,
+            "fees": 3168
+          },
+          "total_cents": 57968,
+          "remaining_cents": 32032,
+          "travel_minutes": 782,
+          "destination_minutes": 2064,
+          "visits": 6,
+          "interest_matches": 0,
+          "score": 60028,
+          "feasible": true,
+          "mode": "bus",
+          "provider": "Atlantic Coach",
+          "hotel": "Fenway Guesthouse"
+        },
+        {
+          "costs": {
+            "primary": 9200,
+            "accommodation": 26400,
+            "transfers": 1200,
+            "local": 900,
+            "activities": 5900,
+            "meals": 14000,
+            "fees": 3168
+          },
+          "total_cents": 60768,
+          "remaining_cents": 29232,
+          "travel_minutes": 702,
+          "destination_minutes": 2104,
+          "visits": 6,
+          "interest_matches": 0,
+          "score": 61928,
+          "feasible": true,
+          "mode": "rail",
+          "provider": "Northeast Rail",
+          "hotel": "Fenway Guesthouse"
+        },
+        {
+          "costs": {
+            "primary": 4800,
+            "accommodation": 26400,
+            "transfers": 7600,
+            "local": 900,
+            "activities": 5900,
+            "meals": 14000,
+            "fees": 3168
+          },
+          "total_cents": 62768,
+          "remaining_cents": 27232,
+          "travel_minutes": 560,
+          "destination_minutes": 2181,
+          "visits": 6,
+          "interest_matches": 0,
+          "score": 62318,
+          "feasible": true,
+          "mode": "air",
+          "provider": "Corridor Air",
+          "hotel": "Fenway Guesthouse"
+        },
+        {
+          "costs": {
+            "primary": 6400,
+            "accommodation": 35700,
+            "transfers": 600,
+            "local": 300,
+            "activities": 5900,
+            "meals": 14000,
+            "fees": 4284
+          },
+          "total_cents": 67184,
+          "remaining_cents": 22816,
+          "travel_minutes": 714,
+          "destination_minutes": 2092,
+          "visits": 6,
+          "interest_matches": 0,
+          "score": 68494,
+          "feasible": true,
+          "mode": "bus",
+          "provider": "Atlantic Coach",
+          "hotel": "Harbor House"
+        },
+        {
+          "costs": {
+            "primary": 9200,
+            "accommodation": 35700,
+            "transfers": 600,
+            "local": 300,
+            "activities": 5900,
+            "meals": 14000,
+            "fees": 4284
+          },
+          "total_cents": 69984,
+          "remaining_cents": 20016,
+          "travel_minutes": 630,
+          "destination_minutes": 2136,
+          "visits": 6,
+          "interest_matches": 0,
+          "score": 70344,
+          "feasible": true,
+          "mode": "rail",
+          "provider": "Northeast Rail",
+          "hotel": "Harbor House"
+        },
+        {
+          "costs": {
+            "primary": 4800,
+            "accommodation": 35700,
+            "transfers": 7600,
+            "local": 300,
+            "activities": 5900,
+            "meals": 14000,
+            "fees": 4284
+          },
+          "total_cents": 72584,
+          "remaining_cents": 17416,
+          "travel_minutes": 548,
+          "destination_minutes": 2153,
+          "visits": 6,
+          "interest_matches": 0,
+          "score": 72084,
+          "feasible": true,
+          "mode": "air",
+          "provider": "Corridor Air",
+          "hotel": "Harbor House"
+        }
+      ],
+      "error": null
+    },
+    {
+      "tool": "generate_itinerary",
+      "inputs": {
+        "request": {
+          "origin": "New York City",
+          "destination": "Boston",
+          "departure": "2027-04-12",
+          "returning": "2027-04-15",
+          "budget_cents": 90000,
+          "travelers": 1,
+          "preferred_mode": null,
+          "lodging": null,
+          "interests": [],
+          "priority": "balanced"
+        }
+      },
+      "output": {
+        "explanation": "Lowest weighted score among 6 within-budget combinations. The next choice (rail, Fenway Guesthouse) differs by +28.00 USD and -80 travel minutes relative to this plan. The selected trip includes 6 visits, 782 minutes in transit or boarding, and $12.00 in terminal transfers.",
+        "schedule": [
+          {
+            "start": "2027-04-12T07:30:00",
+            "end": "2027-04-12T07:45:00",
+            "title": "City center to origin terminal",
+            "category": "transfers",
+            "cents": 300
+          },
+          {
+            "start": "2027-04-12T07:45:00",
+            "end": "2027-04-12T08:00:00",
+            "title": "Boarding buffer",
+            "category": "buffer",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-12T08:00:00",
+            "end": "2027-04-12T12:45:00",
+            "title": "Atlantic Coach to South Station coach hall",
+            "category": "primary",
+            "cents": 3200
+          },
+          {
+            "start": "2027-04-12T12:45:00",
+            "end": "2027-04-12T13:03:00",
+            "title": "Local transit to Fenway Guesthouse",
+            "category": "transfers",
+            "cents": 300
+          },
+          {
+            "start": "2027-04-12T13:03:00",
+            "end": "2027-04-12T13:05:00",
+            "title": "Walk from Fenway Guesthouse to Museum of Fine Arts",
+            "category": "local",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-12T13:05:00",
+            "end": "2027-04-12T14:45:00",
+            "title": "Museum of Fine Arts",
+            "category": "activities",
+            "cents": 2500
+          },
+          {
+            "start": "2027-04-12T14:45:00",
+            "end": "2027-04-12T15:00:00",
+            "title": "Break",
+            "category": "buffer",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-12T15:00:00",
+            "end": "2027-04-12T15:12:00",
+            "title": "Walk from Museum of Fine Arts to Science galleries",
+            "category": "local",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-12T15:12:00",
+            "end": "2027-04-12T16:42:00",
+            "title": "Science galleries",
+            "category": "activities",
+            "cents": 2200
+          },
+          {
+            "start": "2027-04-12T16:42:00",
+            "end": "2027-04-12T16:57:00",
+            "title": "Break",
+            "category": "buffer",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-12T16:57:00",
+            "end": "2027-04-12T17:11:00",
+            "title": "Walk back to Fenway Guesthouse",
+            "category": "local",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-12T17:11:00",
+            "end": "2027-04-12T19:00:00",
+            "title": "Free time and meals",
+            "category": "buffer",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-13T09:00:00",
+            "end": "2027-04-13T09:18:00",
+            "title": "Local transit from Fenway Guesthouse to Freedom Trail walk",
+            "category": "local",
+            "cents": 300
+          },
+          {
+            "start": "2027-04-13T09:18:00",
+            "end": "2027-04-13T10:48:00",
+            "title": "Freedom Trail walk",
+            "category": "activities",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-13T10:48:00",
+            "end": "2027-04-13T11:03:00",
+            "title": "Break",
+            "category": "buffer",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-13T11:03:00",
+            "end": "2027-04-13T11:05:00",
+            "title": "Walk from Freedom Trail walk to Old State House",
+            "category": "local",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-13T11:05:00",
+            "end": "2027-04-13T12:05:00",
+            "title": "Old State House",
+            "category": "activities",
+            "cents": 1200
+          },
+          {
+            "start": "2027-04-13T12:05:00",
+            "end": "2027-04-13T12:20:00",
+            "title": "Break",
+            "category": "buffer",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-13T12:20:00",
+            "end": "2027-04-13T12:38:00",
+            "title": "Local transit back to Fenway Guesthouse",
+            "category": "local",
+            "cents": 300
+          },
+          {
+            "start": "2027-04-13T12:38:00",
+            "end": "2027-04-13T19:00:00",
+            "title": "Free time and meals",
+            "category": "buffer",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-14T09:00:00",
+            "end": "2027-04-14T09:18:00",
+            "title": "Walk from Fenway Guesthouse to Public Garden",
+            "category": "local",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-14T09:18:00",
+            "end": "2027-04-14T10:18:00",
+            "title": "Public Garden",
+            "category": "activities",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-14T10:18:00",
+            "end": "2027-04-14T10:33:00",
+            "title": "Break",
+            "category": "buffer",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-14T10:33:00",
+            "end": "2027-04-14T10:45:00",
+            "title": "Walk from Public Garden to Harborwalk",
+            "category": "local",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-14T10:45:00",
+            "end": "2027-04-14T11:45:00",
+            "title": "Harborwalk",
+            "category": "activities",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-14T11:45:00",
+            "end": "2027-04-14T12:00:00",
+            "title": "Break",
+            "category": "buffer",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-14T12:00:00",
+            "end": "2027-04-14T12:20:00",
+            "title": "Local transit back to Fenway Guesthouse",
+            "category": "local",
+            "cents": 300
+          },
+          {
+            "start": "2027-04-14T12:20:00",
+            "end": "2027-04-14T19:00:00",
+            "title": "Free time and meals",
+            "category": "buffer",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-15T09:00:00",
+            "end": "2027-04-15T17:27:00",
+            "title": "Free time and meals",
+            "category": "buffer",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-15T17:27:00",
+            "end": "2027-04-15T17:45:00",
+            "title": "Walk to South Station coach hall",
+            "category": "transfers",
+            "cents": 300
+          },
+          {
+            "start": "2027-04-15T17:45:00",
+            "end": "2027-04-15T18:00:00",
+            "title": "Boarding buffer",
+            "category": "buffer",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-15T18:00:00",
+            "end": "2027-04-15T22:45:00",
+            "title": "Atlantic Coach to New York City",
+            "category": "primary",
+            "cents": 3200
+          },
+          {
+            "start": "2027-04-15T22:45:00",
+            "end": "2027-04-15T23:00:00",
+            "title": "Origin terminal to city center",
+            "category": "transfers",
+            "cents": 300
+          }
+        ]
+      },
+      "error": null
+    }
+  ],
+  "selected": {
+    "transport": {
+      "source": "Corridor demo catalog v1",
+      "reliability": "simulated",
+      "mode": "bus",
+      "provider": "Atlantic Coach",
+      "origin": "New York City",
+      "destination": "Boston",
+      "terminal": "South Station coach hall",
+      "location": [
+        7,
+        4
+      ],
+      "outbound": [
+        "2027-04-12T08:00:00",
+        "2027-04-12T12:45:00"
+      ],
+      "inbound": [
+        "2027-04-15T18:00:00",
+        "2027-04-15T22:45:00"
+      ],
+      "fare_each_way_cents": 3200,
+      "party_roundtrip_cents": 6400,
+      "access_minutes": 15,
+      "access_cents_pp": 300,
+      "checkin_minutes": 15,
+      "restrictions": "One carry-on included",
+      "roundtrip_ride_minutes": 570
+    },
+    "hotel": {
+      "source": "Corridor demo catalog v1",
+      "reliability": "simulated",
+      "name": "Fenway Guesthouse",
+      "style": "value",
+      "location": [
+        23,
+        12
+      ],
+      "district": "Fenway",
+      "nightly_cents": 8800,
+      "rooms": 1,
+      "nights": 3,
+      "room_total_cents": 26400,
+      "tax_cents": 3168
+    },
+    "costs": {
+      "primary": 6400,
+      "accommodation": 26400,
+      "transfers": 1200,
+      "local": 900,
+      "activities": 5900,
+      "meals": 14000,
+      "fees": 3168
+    },
+    "total_cents": 57968,
+    "remaining_cents": 32032,
+    "travel_minutes": 782,
+    "destination_minutes": 2064,
+    "visits": 6,
+    "interest_matches": 0,
+    "score": 60028,
+    "feasible": true,
+    "events": [
+      {
+        "start": "2027-04-12T07:30:00",
+        "end": "2027-04-12T07:45:00",
+        "title": "City center to origin terminal",
+        "category": "transfers",
+        "cents": 300
+      },
+      {
+        "start": "2027-04-12T07:45:00",
+        "end": "2027-04-12T08:00:00",
+        "title": "Boarding buffer",
+        "category": "buffer",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-12T08:00:00",
+        "end": "2027-04-12T12:45:00",
+        "title": "Atlantic Coach to South Station coach hall",
+        "category": "primary",
+        "cents": 3200
+      },
+      {
+        "start": "2027-04-12T12:45:00",
+        "end": "2027-04-12T13:03:00",
+        "title": "Local transit to Fenway Guesthouse",
+        "category": "transfers",
+        "cents": 300
+      },
+      {
+        "start": "2027-04-12T13:03:00",
+        "end": "2027-04-12T13:05:00",
+        "title": "Walk from Fenway Guesthouse to Museum of Fine Arts",
+        "category": "local",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-12T13:05:00",
+        "end": "2027-04-12T14:45:00",
+        "title": "Museum of Fine Arts",
+        "category": "activities",
+        "cents": 2500
+      },
+      {
+        "start": "2027-04-12T14:45:00",
+        "end": "2027-04-12T15:00:00",
+        "title": "Break",
+        "category": "buffer",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-12T15:00:00",
+        "end": "2027-04-12T15:12:00",
+        "title": "Walk from Museum of Fine Arts to Science galleries",
+        "category": "local",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-12T15:12:00",
+        "end": "2027-04-12T16:42:00",
+        "title": "Science galleries",
+        "category": "activities",
+        "cents": 2200
+      },
+      {
+        "start": "2027-04-12T16:42:00",
+        "end": "2027-04-12T16:57:00",
+        "title": "Break",
+        "category": "buffer",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-12T16:57:00",
+        "end": "2027-04-12T17:11:00",
+        "title": "Walk back to Fenway Guesthouse",
+        "category": "local",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-12T17:11:00",
+        "end": "2027-04-12T19:00:00",
+        "title": "Free time and meals",
+        "category": "buffer",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-13T09:00:00",
+        "end": "2027-04-13T09:18:00",
+        "title": "Local transit from Fenway Guesthouse to Freedom Trail walk",
+        "category": "local",
+        "cents": 300
+      },
+      {
+        "start": "2027-04-13T09:18:00",
+        "end": "2027-04-13T10:48:00",
+        "title": "Freedom Trail walk",
+        "category": "activities",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-13T10:48:00",
+        "end": "2027-04-13T11:03:00",
+        "title": "Break",
+        "category": "buffer",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-13T11:03:00",
+        "end": "2027-04-13T11:05:00",
+        "title": "Walk from Freedom Trail walk to Old State House",
+        "category": "local",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-13T11:05:00",
+        "end": "2027-04-13T12:05:00",
+        "title": "Old State House",
+        "category": "activities",
+        "cents": 1200
+      },
+      {
+        "start": "2027-04-13T12:05:00",
+        "end": "2027-04-13T12:20:00",
+        "title": "Break",
+        "category": "buffer",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-13T12:20:00",
+        "end": "2027-04-13T12:38:00",
+        "title": "Local transit back to Fenway Guesthouse",
+        "category": "local",
+        "cents": 300
+      },
+      {
+        "start": "2027-04-13T12:38:00",
+        "end": "2027-04-13T19:00:00",
+        "title": "Free time and meals",
+        "category": "buffer",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-14T09:00:00",
+        "end": "2027-04-14T09:18:00",
+        "title": "Walk from Fenway Guesthouse to Public Garden",
+        "category": "local",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-14T09:18:00",
+        "end": "2027-04-14T10:18:00",
+        "title": "Public Garden",
+        "category": "activities",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-14T10:18:00",
+        "end": "2027-04-14T10:33:00",
+        "title": "Break",
+        "category": "buffer",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-14T10:33:00",
+        "end": "2027-04-14T10:45:00",
+        "title": "Walk from Public Garden to Harborwalk",
+        "category": "local",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-14T10:45:00",
+        "end": "2027-04-14T11:45:00",
+        "title": "Harborwalk",
+        "category": "activities",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-14T11:45:00",
+        "end": "2027-04-14T12:00:00",
+        "title": "Break",
+        "category": "buffer",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-14T12:00:00",
+        "end": "2027-04-14T12:20:00",
+        "title": "Local transit back to Fenway Guesthouse",
+        "category": "local",
+        "cents": 300
+      },
+      {
+        "start": "2027-04-14T12:20:00",
+        "end": "2027-04-14T19:00:00",
+        "title": "Free time and meals",
+        "category": "buffer",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-15T09:00:00",
+        "end": "2027-04-15T17:27:00",
+        "title": "Free time and meals",
+        "category": "buffer",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-15T17:27:00",
+        "end": "2027-04-15T17:45:00",
+        "title": "Walk to South Station coach hall",
+        "category": "transfers",
+        "cents": 300
+      },
+      {
+        "start": "2027-04-15T17:45:00",
+        "end": "2027-04-15T18:00:00",
+        "title": "Boarding buffer",
+        "category": "buffer",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-15T18:00:00",
+        "end": "2027-04-15T22:45:00",
+        "title": "Atlantic Coach to New York City",
+        "category": "primary",
+        "cents": 3200
+      },
+      {
+        "start": "2027-04-15T22:45:00",
+        "end": "2027-04-15T23:00:00",
+        "title": "Origin terminal to city center",
+        "category": "transfers",
+        "cents": 300
+      }
+    ]
+  },
+  "alternatives": [
+    {
+      "mode": "rail",
+      "provider": "Northeast Rail",
+      "hotel": "Fenway Guesthouse",
+      "costs": {
+        "primary": 9200,
+        "accommodation": 26400,
+        "transfers": 1200,
+        "local": 900,
+        "activities": 5900,
+        "meals": 14000,
+        "fees": 3168
+      },
+      "total_cents": 60768,
+      "remaining_cents": 29232,
+      "travel_minutes": 702,
+      "destination_minutes": 2104,
+      "visits": 6,
+      "interest_matches": 0,
+      "score": 61928,
+      "feasible": true
+    },
+    {
+      "mode": "air",
+      "provider": "Corridor Air",
+      "hotel": "Fenway Guesthouse",
+      "costs": {
+        "primary": 4800,
+        "accommodation": 26400,
+        "transfers": 7600,
+        "local": 900,
+        "activities": 5900,
+        "meals": 14000,
+        "fees": 3168
+      },
+      "total_cents": 62768,
+      "remaining_cents": 27232,
+      "travel_minutes": 560,
+      "destination_minutes": 2181,
+      "visits": 6,
+      "interest_matches": 0,
+      "score": 62318,
+      "feasible": true
+    },
+    {
+      "mode": "bus",
+      "provider": "Atlantic Coach",
+      "hotel": "Harbor House",
+      "costs": {
+        "primary": 6400,
+        "accommodation": 35700,
+        "transfers": 600,
+        "local": 300,
+        "activities": 5900,
+        "meals": 14000,
+        "fees": 4284
+      },
+      "total_cents": 67184,
+      "remaining_cents": 22816,
+      "travel_minutes": 714,
+      "destination_minutes": 2092,
+      "visits": 6,
+      "interest_matches": 0,
+      "score": 68494,
+      "feasible": true
+    },
+    {
+      "mode": "rail",
+      "provider": "Northeast Rail",
+      "hotel": "Harbor House",
+      "costs": {
+        "primary": 9200,
+        "accommodation": 35700,
+        "transfers": 600,
+        "local": 300,
+        "activities": 5900,
+        "meals": 14000,
+        "fees": 4284
+      },
+      "total_cents": 69984,
+      "remaining_cents": 20016,
+      "travel_minutes": 630,
+      "destination_minutes": 2136,
+      "visits": 6,
+      "interest_matches": 0,
+      "score": 70344,
+      "feasible": true
+    },
+    {
+      "mode": "air",
+      "provider": "Corridor Air",
+      "hotel": "Harbor House",
+      "costs": {
+        "primary": 4800,
+        "accommodation": 35700,
+        "transfers": 7600,
+        "local": 300,
+        "activities": 5900,
+        "meals": 14000,
+        "fees": 4284
+      },
+      "total_cents": 72584,
+      "remaining_cents": 17416,
+      "travel_minutes": 548,
+      "destination_minutes": 2153,
+      "visits": 6,
+      "interest_matches": 0,
+      "score": 72084,
+      "feasible": true
+    }
+  ],
+  "explanation": "Lowest weighted score among 6 within-budget combinations. The next choice (rail, Fenway Guesthouse) differs by +28.00 USD and -80 travel minutes relative to this plan. The selected trip includes 6 visits, 782 minutes in transit or boarding, and $12.00 in terminal transfers."
+}

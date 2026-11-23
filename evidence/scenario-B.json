@@ -1,0 +1,1266 @@
+{
+  "prompt": "Plan the cheapest three-day trip from NYC to Philadelphia for one traveler with $850. I like history.",
+  "request": {
+    "origin": "New York City",
+    "destination": "Philadelphia",
+    "departure": "2027-04-12",
+    "returning": "2027-04-14",
+    "budget_cents": 85000,
+    "travelers": 1,
+    "preferred_mode": null,
+    "lodging": null,
+    "interests": [
+      "history"
+    ],
+    "priority": "cost"
+  },
+  "mode": "demo",
+  "assumptions": [
+    "Simulated daily service, prices and attraction hours. All times are local Eastern time.",
+    "Meals budgeted at $35 per traveler per day. Rooms sleep two. Simulated lodging tax is 12%.",
+    "Transfers start and end in central New York City. Hotel luggage storage assumed on travel days.",
+    "Default departure = 2027-04-12."
+  ],
+  "trace": [
+    {
+      "tool": "set_trip",
+      "inputs": {
+        "origin": "New York City",
+        "destination": "Philadelphia",
+        "days": 3,
+        "budget_usd": "850",
+        "travelers": 1,
+        "interests": [
+          "history"
+        ],
+        "priority": "cost",
+        "overrides": {}
+      },
+      "output": {
+        "origin": "New York City",
+        "destination": "Philadelphia",
+        "departure": "2027-04-12",
+        "returning": "2027-04-14",
+        "budget_cents": 85000,
+        "travelers": 1,
+        "preferred_mode": null,
+        "lodging": null,
+        "interests": [
+          "history"
+        ],
+        "priority": "cost"
+      },
+      "error": null
+    },
+    {
+      "tool": "search_flights",
+      "inputs": {
+        "request": {
+          "origin": "New York City",
+          "destination": "Philadelphia",
+          "departure": "2027-04-12",
+          "returning": "2027-04-14",
+          "budget_cents": 85000,
+          "travelers": 1,
+          "preferred_mode": null,
+          "lodging": null,
+          "interests": [
+            "history"
+          ],
+          "priority": "cost"
+        }
+      },
+      "output": [
+        {
+          "source": "Corridor demo catalog v1",
+          "reliability": "simulated",
+          "mode": "air",
+          "provider": "Corridor Air",
+          "origin": "New York City",
+          "destination": "Philadelphia",
+          "terminal": "Regional air terminal",
+          "location": [
+            37,
+            30
+          ],
+          "outbound": [
+            "2027-04-12T08:00:00",
+            "2027-04-12T09:05:00"
+          ],
+          "inbound": [
+            "2027-04-14T18:00:00",
+            "2027-04-14T19:05:00"
+          ],
+          "fare_each_way_cents": 2100,
+          "party_roundtrip_cents": 4200,
+          "access_minutes": 45,
+          "access_cents_pp": 1200,
+          "checkin_minutes": 60,
+          "restrictions": "Personal item only",
+          "roundtrip_ride_minutes": 130
+        }
+      ],
+      "error": null
+    },
+    {
+      "tool": "search_ground_transport",
+      "inputs": {
+        "request": {
+          "origin": "New York City",
+          "destination": "Philadelphia",
+          "departure": "2027-04-12",
+          "returning": "2027-04-14",
+          "budget_cents": 85000,
+          "travelers": 1,
+          "preferred_mode": null,
+          "lodging": null,
+          "interests": [
+            "history"
+          ],
+          "priority": "cost"
+        }
+      },
+      "output": [
+        {
+          "source": "Corridor demo catalog v1",
+          "reliability": "simulated",
+          "mode": "rail",
+          "provider": "Northeast Rail",
+          "origin": "New York City",
+          "destination": "Philadelphia",
+          "terminal": "30th Street Station",
+          "location": [
+            11,
+            7
+          ],
+          "outbound": [
+            "2027-04-12T08:00:00",
+            "2027-04-12T09:35:00"
+          ],
+          "inbound": [
+            "2027-04-14T18:00:00",
+            "2027-04-14T19:35:00"
+          ],
+          "fare_each_way_cents": 3600,
+          "party_roundtrip_cents": 7200,
+          "access_minutes": 15,
+          "access_cents_pp": 300,
+          "checkin_minutes": 15,
+          "restrictions": "One carry-on included",
+          "roundtrip_ride_minutes": 190
+        },
+        {
+          "source": "Corridor demo catalog v1",
+          "reliability": "simulated",
+          "mode": "bus",
+          "provider": "Atlantic Coach",
+          "origin": "New York City",
+          "destination": "Philadelphia",
+          "terminal": "Center City coach stop",
+          "location": [
+            6,
+            6
+          ],
+          "outbound": [
+            "2027-04-12T08:00:00",
+            "2027-04-12T10:25:00"
+          ],
+          "inbound": [
+            "2027-04-14T18:00:00",
+            "2027-04-14T20:25:00"
+          ],
+          "fare_each_way_cents": 2300,
+          "party_roundtrip_cents": 4600,
+          "access_minutes": 15,
+          "access_cents_pp": 300,
+          "checkin_minutes": 15,
+          "restrictions": "One carry-on included",
+          "roundtrip_ride_minutes": 290
+        }
+      ],
+      "error": null
+    },
+    {
+      "tool": "search_hotels",
+      "inputs": {
+        "request": {
+          "origin": "New York City",
+          "destination": "Philadelphia",
+          "departure": "2027-04-12",
+          "returning": "2027-04-14",
+          "budget_cents": 85000,
+          "travelers": 1,
+          "preferred_mode": null,
+          "lodging": null,
+          "interests": [
+            "history"
+          ],
+          "priority": "cost"
+        }
+      },
+      "output": [
+        {
+          "source": "Corridor demo catalog v1",
+          "reliability": "simulated",
+          "name": "Market Street Inn",
+          "style": "central",
+          "location": [
+            4,
+            5
+          ],
+          "district": "Old City",
+          "nightly_cents": 10800,
+          "rooms": 1,
+          "nights": 2,
+          "room_total_cents": 21600,
+          "tax_cents": 2592
+        },
+        {
+          "source": "Corridor demo catalog v1",
+          "reliability": "simulated",
+          "name": "University Lodge",
+          "style": "value",
+          "location": [
+            19,
+            11
+          ],
+          "district": "University City",
+          "nightly_cents": 7900,
+          "rooms": 1,
+          "nights": 2,
+          "room_total_cents": 15800,
+          "tax_cents": 1896
+        }
+      ],
+      "error": null
+    },
+    {
+      "tool": "search_activities",
+      "inputs": {
+        "request": {
+          "origin": "New York City",
+          "destination": "Philadelphia",
+          "departure": "2027-04-12",
+          "returning": "2027-04-14",
+          "budget_cents": 85000,
+          "travelers": 1,
+          "preferred_mode": null,
+          "lodging": null,
+          "interests": [
+            "history"
+          ],
+          "priority": "cost"
+        }
+      },
+      "output": [
+        {
+          "source": "Corridor demo catalog v1",
+          "reliability": "simulated",
+          "name": "Independence district walk",
+          "district": "Old City",
+          "location": [
+            4,
+            4
+          ],
+          "interest": "history",
+          "duration": 90,
+          "admission_cents": 0,
+          "opens": 9,
+          "closes": 17
+        },
+        {
+          "source": "Corridor demo catalog v1",
+          "reliability": "simulated",
+          "name": "River trail",
+          "district": "Schuylkill Banks",
+          "location": [
+            14,
+            8
+          ],
+          "interest": "outdoors",
+          "duration": 60,
+          "admission_cents": 0,
+          "opens": 8,
+          "closes": 18
+        },
+        {
+          "source": "Corridor demo catalog v1",
+          "reliability": "simulated",
+          "name": "Art museum galleries",
+          "district": "Fairmount",
+          "location": [
+            16,
+            12
+          ],
+          "interest": "art",
+          "duration": 100,
+          "admission_cents": 2300,
+          "opens": 10,
+          "closes": 17
+        },
+        {
+          "source": "Corridor demo catalog v1",
+          "reliability": "simulated",
+          "name": "Franklin science exhibits",
+          "district": "Logan Square",
+          "location": [
+            12,
+            10
+          ],
+          "interest": "science",
+          "duration": 90,
+          "admission_cents": 2400,
+          "opens": 10,
+          "closes": 17
+        },
+        {
+          "source": "Corridor demo catalog v1",
+          "reliability": "simulated",
+          "name": "Reading Terminal Market walk",
+          "district": "Center City",
+          "location": [
+            7,
+            6
+          ],
+          "interest": "history",
+          "duration": 60,
+          "admission_cents": 0,
+          "opens": 9,
+          "closes": 17
+        }
+      ],
+      "error": null
+    },
+    {
+      "tool": "estimate_trip_costs",
+      "inputs": {
+        "request": {
+          "origin": "New York City",
+          "destination": "Philadelphia",
+          "departure": "2027-04-12",
+          "returning": "2027-04-14",
+          "budget_cents": 85000,
+          "travelers": 1,
+          "preferred_mode": null,
+          "lodging": null,
+          "interests": [
+            "history"
+          ],
+          "priority": "cost"
+        }
+      },
+      "output": [
+        {
+          "costs": {
+            "primary": 4200,
+            "accommodation": 21600,
+            "transfers": 7600,
+            "local": 600,
+            "activities": 4700,
+            "meals": 10500,
+            "fees": 2592
+          },
+          "total_cents": 51792,
+          "remaining_cents": 33208,
+          "travel_minutes": 500,
+          "destination_minutes": 1587,
+          "visits": 5,
+          "interest_matches": 2,
+          "score": 51792,
+          "feasible": true,
+          "mode": "air",
+          "provider": "Corridor Air",
+          "hotel": "Market Street Inn"
+        },
+        {
+          "costs": {
+            "primary": 4200,
+            "accommodation": 15800,
+            "transfers": 3000,
+            "local": 300,
+            "activities": 4700,
+            "meals": 10500,
+            "fees": 1896
+          },
+          "total_cents": 40396,
+          "remaining_cents": 44604,
+          "travel_minutes": 451,
+          "destination_minutes": 1631,
+          "visits": 5,
+          "interest_matches": 2,
+          "score": 40396,
+          "feasible": true,
+          "mode": "air",
+          "provider": "Corridor Air",
+          "hotel": "University Lodge"
+        },
+        {
+          "costs": {
+            "primary": 7200,
+            "accommodation": 21600,
+            "transfers": 600,
+            "local": 600,
+            "activities": 4700,
+            "meals": 10500,
+            "fees": 2592
+          },
+          "total_cents": 47792,
+          "remaining_cents": 37208,
+          "travel_minutes": 340,
+          "destination_minutes": 1672,
+          "visits": 5,
+          "interest_matches": 2,
+          "score": 47792,
+          "feasible": true,
+          "mode": "rail",
+          "provider": "Northeast Rail",
+          "hotel": "Market Street Inn"
+        },
+        {
+          "costs": {
+            "primary": 7200,
+            "accommodation": 15800,
+            "transfers": 600,
+            "local": 300,
+            "activities": 4700,
+            "meals": 10500,
+            "fees": 1896
+          },
+          "total_cents": 40996,
+          "remaining_cents": 44004,
+          "travel_minutes": 341,
+          "destination_minutes": 1666,
+          "visits": 5,
+          "interest_matches": 2,
+          "score": 40996,
+          "feasible": true,
+          "mode": "rail",
+          "provider": "Northeast Rail",
+          "hotel": "University Lodge"
+        },
+        {
+          "costs": {
+            "primary": 4600,
+            "accommodation": 21600,
+            "transfers": 600,
+            "local": 600,
+            "activities": 4700,
+            "meals": 10500,
+            "fees": 2592
+          },
+          "total_cents": 45192,
+          "remaining_cents": 39808,
+          "travel_minutes": 428,
+          "destination_minutes": 1634,
+          "visits": 5,
+          "interest_matches": 2,
+          "score": 45192,
+          "feasible": true,
+          "mode": "bus",
+          "provider": "Atlantic Coach",
+          "hotel": "Market Street Inn"
+        },
+        {
+          "costs": {
+            "primary": 4600,
+            "accommodation": 15800,
+            "transfers": 600,
+            "local": 300,
+            "activities": 4700,
+            "meals": 10500,
+            "fees": 1896
+          },
+          "total_cents": 38396,
+          "remaining_cents": 46604,
+          "travel_minutes": 453,
+          "destination_minutes": 1604,
+          "visits": 5,
+          "interest_matches": 2,
+          "score": 38396,
+          "feasible": true,
+          "mode": "bus",
+          "provider": "Atlantic Coach",
+          "hotel": "University Lodge"
+        }
+      ],
+      "error": null
+    },
+    {
+      "tool": "compare_trip_options",
+      "inputs": {
+        "request": {
+          "origin": "New York City",
+          "destination": "Philadelphia",
+          "departure": "2027-04-12",
+          "returning": "2027-04-14",
+          "budget_cents": 85000,
+          "travelers": 1,
+          "preferred_mode": null,
+          "lodging": null,
+          "interests": [
+            "history"
+          ],
+          "priority": "cost"
+        }
+      },
+      "output": [
+        {
+          "costs": {
+            "primary": 4600,
+            "accommodation": 15800,
+            "transfers": 600,
+            "local": 300,
+            "activities": 4700,
+            "meals": 10500,
+            "fees": 1896
+          },
+          "total_cents": 38396,
+          "remaining_cents": 46604,
+          "travel_minutes": 453,
+          "destination_minutes": 1604,
+          "visits": 5,
+          "interest_matches": 2,
+          "score": 38396,
+          "feasible": true,
+          "mode": "bus",
+          "provider": "Atlantic Coach",
+          "hotel": "University Lodge"
+        },
+        {
+          "costs": {
+            "primary": 4200,
+            "accommodation": 15800,
+            "transfers": 3000,
+            "local": 300,
+            "activities": 4700,
+            "meals": 10500,
+            "fees": 1896
+          },
+          "total_cents": 40396,
+          "remaining_cents": 44604,
+          "travel_minutes": 451,
+          "destination_minutes": 1631,
+          "visits": 5,
+          "interest_matches": 2,
+          "score": 40396,
+          "feasible": true,
+          "mode": "air",
+          "provider": "Corridor Air",
+          "hotel": "University Lodge"
+        },
+        {
+          "costs": {
+            "primary": 7200,
+            "accommodation": 15800,
+            "transfers": 600,
+            "local": 300,
+            "activities": 4700,
+            "meals": 10500,
+            "fees": 1896
+          },
+          "total_cents": 40996,
+          "remaining_cents": 44004,
+          "travel_minutes": 341,
+          "destination_minutes": 1666,
+          "visits": 5,
+          "interest_matches": 2,
+          "score": 40996,
+          "feasible": true,
+          "mode": "rail",
+          "provider": "Northeast Rail",
+          "hotel": "University Lodge"
+        },
+        {
+          "costs": {
+            "primary": 4600,
+            "accommodation": 21600,
+            "transfers": 600,
+            "local": 600,
+            "activities": 4700,
+            "meals": 10500,
+            "fees": 2592
+          },
+          "total_cents": 45192,
+          "remaining_cents": 39808,
+          "travel_minutes": 428,
+          "destination_minutes": 1634,
+          "visits": 5,
+          "interest_matches": 2,
+          "score": 45192,
+          "feasible": true,
+          "mode": "bus",
+          "provider": "Atlantic Coach",
+          "hotel": "Market Street Inn"
+        },
+        {
+          "costs": {
+            "primary": 7200,
+            "accommodation": 21600,
+            "transfers": 600,
+            "local": 600,
+            "activities": 4700,
+            "meals": 10500,
+            "fees": 2592
+          },
+          "total_cents": 47792,
+          "remaining_cents": 37208,
+          "travel_minutes": 340,
+          "destination_minutes": 1672,
+          "visits": 5,
+          "interest_matches": 2,
+          "score": 47792,
+          "feasible": true,
+          "mode": "rail",
+          "provider": "Northeast Rail",
+          "hotel": "Market Street Inn"
+        },
+        {
+          "costs": {
+            "primary": 4200,
+            "accommodation": 21600,
+            "transfers": 7600,
+            "local": 600,
+            "activities": 4700,
+            "meals": 10500,
+            "fees": 2592
+          },
+          "total_cents": 51792,
+          "remaining_cents": 33208,
+          "travel_minutes": 500,
+          "destination_minutes": 1587,
+          "visits": 5,
+          "interest_matches": 2,
+          "score": 51792,
+          "feasible": true,
+          "mode": "air",
+          "provider": "Corridor Air",
+          "hotel": "Market Street Inn"
+        }
+      ],
+      "error": null
+    },
+    {
+      "tool": "generate_itinerary",
+      "inputs": {
+        "request": {
+          "origin": "New York City",
+          "destination": "Philadelphia",
+          "departure": "2027-04-12",
+          "returning": "2027-04-14",
+          "budget_cents": 85000,
+          "travelers": 1,
+          "preferred_mode": null,
+          "lodging": null,
+          "interests": [
+            "history"
+          ],
+          "priority": "cost"
+        }
+      },
+      "output": {
+        "explanation": "Lowest weighted score among 6 within-budget combinations. The next choice (air, University Lodge) differs by +20.00 USD and -2 travel minutes relative to this plan. The selected trip includes 5 visits, 453 minutes in transit or boarding, and $6.00 in terminal transfers.",
+        "schedule": [
+          {
+            "start": "2027-04-12T07:30:00",
+            "end": "2027-04-12T07:45:00",
+            "title": "City center to origin terminal",
+            "category": "transfers",
+            "cents": 300
+          },
+          {
+            "start": "2027-04-12T07:45:00",
+            "end": "2027-04-12T08:00:00",
+            "title": "Boarding buffer",
+            "category": "buffer",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-12T08:00:00",
+            "end": "2027-04-12T10:25:00",
+            "title": "Atlantic Coach to Center City coach stop",
+            "category": "primary",
+            "cents": 2300
+          },
+          {
+            "start": "2027-04-12T10:25:00",
+            "end": "2027-04-12T10:43:00",
+            "title": "Walk to University Lodge",
+            "category": "transfers",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-12T10:43:00",
+            "end": "2027-04-12T11:00:00",
+            "title": "Local transit from University Lodge to Independence district walk",
+            "category": "local",
+            "cents": 300
+          },
+          {
+            "start": "2027-04-12T11:00:00",
+            "end": "2027-04-12T12:30:00",
+            "title": "Independence district walk",
+            "category": "activities",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-12T12:30:00",
+            "end": "2027-04-12T12:45:00",
+            "title": "Break",
+            "category": "buffer",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-12T12:45:00",
+            "end": "2027-04-12T12:50:00",
+            "title": "Walk from Independence district walk to Reading Terminal Market walk",
+            "category": "local",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-12T12:50:00",
+            "end": "2027-04-12T13:50:00",
+            "title": "Reading Terminal Market walk",
+            "category": "activities",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-12T13:50:00",
+            "end": "2027-04-12T14:05:00",
+            "title": "Break",
+            "category": "buffer",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-12T14:05:00",
+            "end": "2027-04-12T14:22:00",
+            "title": "Walk back to University Lodge",
+            "category": "local",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-12T14:22:00",
+            "end": "2027-04-12T19:00:00",
+            "title": "Free time and meals",
+            "category": "buffer",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-13T09:00:00",
+            "end": "2027-04-13T09:08:00",
+            "title": "Walk from University Lodge to River trail",
+            "category": "local",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-13T09:08:00",
+            "end": "2027-04-13T10:08:00",
+            "title": "River trail",
+            "category": "activities",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-13T10:08:00",
+            "end": "2027-04-13T10:23:00",
+            "title": "Break",
+            "category": "buffer",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-13T10:23:00",
+            "end": "2027-04-13T10:27:00",
+            "title": "Walk from River trail to Franklin science exhibits",
+            "category": "local",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-13T10:27:00",
+            "end": "2027-04-13T11:57:00",
+            "title": "Franklin science exhibits",
+            "category": "activities",
+            "cents": 2400
+          },
+          {
+            "start": "2027-04-13T11:57:00",
+            "end": "2027-04-13T12:12:00",
+            "title": "Break",
+            "category": "buffer",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-13T12:12:00",
+            "end": "2027-04-13T12:20:00",
+            "title": "Walk back to University Lodge",
+            "category": "local",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-13T12:20:00",
+            "end": "2027-04-13T19:00:00",
+            "title": "Free time and meals",
+            "category": "buffer",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-14T09:00:00",
+            "end": "2027-04-14T09:04:00",
+            "title": "Walk from University Lodge to Art museum galleries",
+            "category": "local",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-14T09:04:00",
+            "end": "2027-04-14T10:00:00",
+            "title": "Free time before opening",
+            "category": "buffer",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-14T10:00:00",
+            "end": "2027-04-14T11:40:00",
+            "title": "Art museum galleries",
+            "category": "activities",
+            "cents": 2300
+          },
+          {
+            "start": "2027-04-14T11:40:00",
+            "end": "2027-04-14T11:55:00",
+            "title": "Break",
+            "category": "buffer",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-14T11:55:00",
+            "end": "2027-04-14T11:59:00",
+            "title": "Walk back to University Lodge",
+            "category": "local",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-14T11:59:00",
+            "end": "2027-04-14T17:27:00",
+            "title": "Free time and meals",
+            "category": "buffer",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-14T17:27:00",
+            "end": "2027-04-14T17:45:00",
+            "title": "Walk to Center City coach stop",
+            "category": "transfers",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-14T17:45:00",
+            "end": "2027-04-14T18:00:00",
+            "title": "Boarding buffer",
+            "category": "buffer",
+            "cents": 0
+          },
+          {
+            "start": "2027-04-14T18:00:00",
+            "end": "2027-04-14T20:25:00",
+            "title": "Atlantic Coach to New York City",
+            "category": "primary",
+            "cents": 2300
+          },
+          {
+            "start": "2027-04-14T20:25:00",
+            "end": "2027-04-14T20:40:00",
+            "title": "Origin terminal to city center",
+            "category": "transfers",
+            "cents": 300
+          }
+        ]
+      },
+      "error": null
+    }
+  ],
+  "selected": {
+    "transport": {
+      "source": "Corridor demo catalog v1",
+      "reliability": "simulated",
+      "mode": "bus",
+      "provider": "Atlantic Coach",
+      "origin": "New York City",
+      "destination": "Philadelphia",
+      "terminal": "Center City coach stop",
+      "location": [
+        6,
+        6
+      ],
+      "outbound": [
+        "2027-04-12T08:00:00",
+        "2027-04-12T10:25:00"
+      ],
+      "inbound": [
+        "2027-04-14T18:00:00",
+        "2027-04-14T20:25:00"
+      ],
+      "fare_each_way_cents": 2300,
+      "party_roundtrip_cents": 4600,
+      "access_minutes": 15,
+      "access_cents_pp": 300,
+      "checkin_minutes": 15,
+      "restrictions": "One carry-on included",
+      "roundtrip_ride_minutes": 290
+    },
+    "hotel": {
+      "source": "Corridor demo catalog v1",
+      "reliability": "simulated",
+      "name": "University Lodge",
+      "style": "value",
+      "location": [
+        19,
+        11
+      ],
+      "district": "University City",
+      "nightly_cents": 7900,
+      "rooms": 1,
+      "nights": 2,
+      "room_total_cents": 15800,
+      "tax_cents": 1896
+    },
+    "costs": {
+      "primary": 4600,
+      "accommodation": 15800,
+      "transfers": 600,
+      "local": 300,
+      "activities": 4700,
+      "meals": 10500,
+      "fees": 1896
+    },
+    "total_cents": 38396,
+    "remaining_cents": 46604,
+    "travel_minutes": 453,
+    "destination_minutes": 1604,
+    "visits": 5,
+    "interest_matches": 2,
+    "score": 38396,
+    "feasible": true,
+    "events": [
+      {
+        "start": "2027-04-12T07:30:00",
+        "end": "2027-04-12T07:45:00",
+        "title": "City center to origin terminal",
+        "category": "transfers",
+        "cents": 300
+      },
+      {
+        "start": "2027-04-12T07:45:00",
+        "end": "2027-04-12T08:00:00",
+        "title": "Boarding buffer",
+        "category": "buffer",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-12T08:00:00",
+        "end": "2027-04-12T10:25:00",
+        "title": "Atlantic Coach to Center City coach stop",
+        "category": "primary",
+        "cents": 2300
+      },
+      {
+        "start": "2027-04-12T10:25:00",
+        "end": "2027-04-12T10:43:00",
+        "title": "Walk to University Lodge",
+        "category": "transfers",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-12T10:43:00",
+        "end": "2027-04-12T11:00:00",
+        "title": "Local transit from University Lodge to Independence district walk",
+        "category": "local",
+        "cents": 300
+      },
+      {
+        "start": "2027-04-12T11:00:00",
+        "end": "2027-04-12T12:30:00",
+        "title": "Independence district walk",
+        "category": "activities",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-12T12:30:00",
+        "end": "2027-04-12T12:45:00",
+        "title": "Break",
+        "category": "buffer",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-12T12:45:00",
+        "end": "2027-04-12T12:50:00",
+        "title": "Walk from Independence district walk to Reading Terminal Market walk",
+        "category": "local",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-12T12:50:00",
+        "end": "2027-04-12T13:50:00",
+        "title": "Reading Terminal Market walk",
+        "category": "activities",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-12T13:50:00",
+        "end": "2027-04-12T14:05:00",
+        "title": "Break",
+        "category": "buffer",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-12T14:05:00",
+        "end": "2027-04-12T14:22:00",
+        "title": "Walk back to University Lodge",
+        "category": "local",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-12T14:22:00",
+        "end": "2027-04-12T19:00:00",
+        "title": "Free time and meals",
+        "category": "buffer",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-13T09:00:00",
+        "end": "2027-04-13T09:08:00",
+        "title": "Walk from University Lodge to River trail",
+        "category": "local",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-13T09:08:00",
+        "end": "2027-04-13T10:08:00",
+        "title": "River trail",
+        "category": "activities",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-13T10:08:00",
+        "end": "2027-04-13T10:23:00",
+        "title": "Break",
+        "category": "buffer",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-13T10:23:00",
+        "end": "2027-04-13T10:27:00",
+        "title": "Walk from River trail to Franklin science exhibits",
+        "category": "local",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-13T10:27:00",
+        "end": "2027-04-13T11:57:00",
+        "title": "Franklin science exhibits",
+        "category": "activities",
+        "cents": 2400
+      },
+      {
+        "start": "2027-04-13T11:57:00",
+        "end": "2027-04-13T12:12:00",
+        "title": "Break",
+        "category": "buffer",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-13T12:12:00",
+        "end": "2027-04-13T12:20:00",
+        "title": "Walk back to University Lodge",
+        "category": "local",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-13T12:20:00",
+        "end": "2027-04-13T19:00:00",
+        "title": "Free time and meals",
+        "category": "buffer",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-14T09:00:00",
+        "end": "2027-04-14T09:04:00",
+        "title": "Walk from University Lodge to Art museum galleries",
+        "category": "local",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-14T09:04:00",
+        "end": "2027-04-14T10:00:00",
+        "title": "Free time before opening",
+        "category": "buffer",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-14T10:00:00",
+        "end": "2027-04-14T11:40:00",
+        "title": "Art museum galleries",
+        "category": "activities",
+        "cents": 2300
+      },
+      {
+        "start": "2027-04-14T11:40:00",
+        "end": "2027-04-14T11:55:00",
+        "title": "Break",
+        "category": "buffer",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-14T11:55:00",
+        "end": "2027-04-14T11:59:00",
+        "title": "Walk back to University Lodge",
+        "category": "local",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-14T11:59:00",
+        "end": "2027-04-14T17:27:00",
+        "title": "Free time and meals",
+        "category": "buffer",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-14T17:27:00",
+        "end": "2027-04-14T17:45:00",
+        "title": "Walk to Center City coach stop",
+        "category": "transfers",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-14T17:45:00",
+        "end": "2027-04-14T18:00:00",
+        "title": "Boarding buffer",
+        "category": "buffer",
+        "cents": 0
+      },
+      {
+        "start": "2027-04-14T18:00:00",
+        "end": "2027-04-14T20:25:00",
+        "title": "Atlantic Coach to New York City",
+        "category": "primary",
+        "cents": 2300
+      },
+      {
+        "start": "2027-04-14T20:25:00",
+        "end": "2027-04-14T20:40:00",
+        "title": "Origin terminal to city center",
+        "category": "transfers",
+        "cents": 300
+      }
+    ]
+  },
+  "alternatives": [
+    {
+      "mode": "air",
+      "provider": "Corridor Air",
+      "hotel": "University Lodge",
+      "costs": {
+        "primary": 4200,
+        "accommodation": 15800,
+        "transfers": 3000,
+        "local": 300,
+        "activities": 4700,
+        "meals": 10500,
+        "fees": 1896
+      },
+      "total_cents": 40396,
+      "remaining_cents": 44604,
+      "travel_minutes": 451,
+      "destination_minutes": 1631,
+      "visits": 5,
+      "interest_matches": 2,
+      "score": 40396,
+      "feasible": true
+    },
+    {
+      "mode": "rail",
+      "provider": "Northeast Rail",
+      "hotel": "University Lodge",
+      "costs": {
+        "primary": 7200,
+        "accommodation": 15800,
+        "transfers": 600,
+        "local": 300,
+        "activities": 4700,
+        "meals": 10500,
+        "fees": 1896
+      },
+      "total_cents": 40996,
+      "remaining_cents": 44004,
+      "travel_minutes": 341,
+      "destination_minutes": 1666,
+      "visits": 5,
+      "interest_matches": 2,
+      "score": 40996,
+      "feasible": true
+    },
+    {
+      "mode": "bus",
+      "provider": "Atlantic Coach",
+      "hotel": "Market Street Inn",
+      "costs": {
+        "primary": 4600,
+        "accommodation": 21600,
+        "transfers": 600,
+        "local": 600,
+        "activities": 4700,
+        "meals": 10500,
+        "fees": 2592
+      },
+      "total_cents": 45192,
+      "remaining_cents": 39808,
+      "travel_minutes": 428,
+      "destination_minutes": 1634,
+      "visits": 5,
+      "interest_matches": 2,
+      "score": 45192,
+      "feasible": true
+    },
+    {
+      "mode": "rail",
+      "provider": "Northeast Rail",
+      "hotel": "Market Street Inn",
+      "costs": {
+        "primary": 7200,
+        "accommodation": 21600,
+        "transfers": 600,
+        "local": 600,
+        "activities": 4700,
+        "meals": 10500,
+        "fees": 2592
+      },
+      "total_cents": 47792,
+      "remaining_cents": 37208,
+      "travel_minutes": 340,
+      "destination_minutes": 1672,
+      "visits": 5,
+      "interest_matches": 2,
+      "score": 47792,
+      "feasible": true
+    },
+    {
+      "mode": "air",
+      "provider": "Corridor Air",
+      "hotel": "Market Street Inn",
+      "costs": {
+        "primary": 4200,
+        "accommodation": 21600,
+        "transfers": 7600,
+        "local": 600,
+        "activities": 4700,
+        "meals": 10500,
+        "fees": 2592
+      },
+      "total_cents": 51792,
+      "remaining_cents": 33208,
+      "travel_minutes": 500,
+      "destination_minutes": 1587,
+      "visits": 5,
+      "interest_matches": 2,
+      "score": 51792,
+      "feasible": true
+    }
+  ],
+  "explanation": "Lowest weighted score among 6 within-budget combinations. The next choice (air, University Lodge) differs by +20.00 USD and -2 travel minutes relative to this plan. The selected trip includes 5 visits, 453 minutes in transit or boarding, and $6.00 in terminal transfers."
+}
